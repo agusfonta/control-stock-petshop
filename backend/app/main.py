@@ -2,10 +2,12 @@
 
 from fastapi import APIRouter, FastAPI
 
-from app.routers import health
+from app.routers import auth, health, usuarios
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
+api_router.include_router(auth.router)
+api_router.include_router(usuarios.router)
 
 
 def create_app() -> FastAPI:
