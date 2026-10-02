@@ -1,0 +1,4 @@
+sku,nombre,categoria,costo,margen_pct,stock_actual,stock_minimo,distribuidora
+BAL-ADU-15,Balanceado adulto 15kg,Alimentos,18500,35,20,5,Distribuidora Sur
+PIP-CAN-M,Pipeta antiparasitaria canina M,Antiparasitarios,3200,50,30,10,Distribuidora Sur
+JUG-SOGA-Algodon,Juguete soga de algodon,Juguetes,1500,60,12,4,Distribuidora Norte
