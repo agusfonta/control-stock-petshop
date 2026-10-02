@@ -110,7 +110,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ## FASE 0 — Cimientos
 
 ### [C-01] `foundation-setup`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Scaffolding completo + infraestructura base (Enfoque B, arranque limpio)
   - Estructura `backend/app/{routers,services,models.py,schemas.py,deps.py,core/}`, `frontend/src/{features,shared,pages/}`
   - `backend/`: FastAPI app mínima con `GET /api/health`, Alembic inicializado, `core/{config,security,db}`, `Dockerfile`
