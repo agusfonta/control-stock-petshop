@@ -129,7 +129,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-02] `core-models`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Modelos base + migraciones iniciales + seed mínimo
   - Modelos: `Usuario`, `Producto`, `Distribuidora`, `Cliente` (campos según ERD, uuid PK, sku unique, `precio_venta` calculado)
   - Mixins: `AuditMixin` (`activo`, `created_at`, `updated_at`), base repository genérico
