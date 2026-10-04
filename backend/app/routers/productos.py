@@ -15,11 +15,21 @@ from sqlalchemy.orm import Session
 from app import deps
 from app.models import Producto
 from app.schemas import (
+    AjusteStockRequest,
+    AjusteStockResponse,
     BusquedaResponse,
     MargenMinimoRequest,
+    MovimientoResponse,
     ProductoCreate,
     ProductoResponse,
     ProductoUpdate,
+)
+from app.services.stock import (
+    MotivoInvalido,
+    ProductoNoEncontrado,
+    StockError,
+    StockNegativo,
+    ajustar as ajustar_stock,
 )
 
 router = APIRouter(prefix="/productos", tags=["productos"])
@@ -224,3 +234,58 @@ def eliminar_producto(
     producto = _get_or_404(db, producto_id)
     producto.activo = False
     db.commit()
+
+
+@router.post("/{producto_id}/ajustar", response_model=AjusteStockResponse)
+def ajustar_producto(
+    producto_id: str,
+    data: AjusteStockRequest,
+    db: Session = Depends(deps.get_db),
+    current: deps.Usuario = Depends(deps.require_duena),
+) -> AjusteStockResponse:
+    """Ajusta stock con movimiento auditable en 1 transaccion (RN-ST-02/03).
+
+    Solo duena. Motivo obligatorio, delta != 0 (validados por schema
+    antes de tocar la base). Resultado negativo -> 422 sin cambios.
+    Fallo inesperado -> rollback total + 500, nunca stock a medias.
+    """
+    try:
+        producto, movimiento = ajustar_stock(
+            db,
+            producto_id,
+            data.cantidad_delta,
+            data.motivo,
+            current,
+        )
+    except ProductoNoEncontrado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="producto no encontrado",
+        ) from exc
+    except (MotivoInvalido, StockNegativo, StockError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="error interno al ajustar stock",
+        ) from exc
+    db.refresh(producto)
+    return AjusteStockResponse(
+        producto=_to_response(producto),
+        movimiento=MovimientoResponse(
+            id=movimiento.id,
+            producto_id=movimiento.producto_id,
+            tipo=movimiento.tipo,
+            cantidad=movimiento.cantidad,
+            stock_previo=movimiento.stock_previo,
+            stock_nuevo=movimiento.stock_nuevo,
+            ref_id=movimiento.ref_id,
+            motivo=movimiento.motivo,
+            usuario_id=movimiento.usuario_id,
+            created_at=movimiento.created_at,
+        ),
+    )

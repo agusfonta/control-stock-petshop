@@ -153,6 +153,54 @@ def test_migracion_0003_crea_lista_precio(migrated_db) -> None:
 
 
 @needs_pg
+def test_migracion_0004_crea_movimiento_stock(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        tables = set(inspect(engine).get_table_names())
+        indexes = inspect(engine).get_indexes("movimiento_stock")
+        checks = inspect(engine).get_check_constraints("movimiento_stock")
+    finally:
+        engine.dispose()
+    assert "movimiento_stock" in tables
+    assert {"ix_movimiento_stock_producto_id", "ix_movimiento_stock_created_at"} <= {
+        i["name"] for i in indexes
+    }
+    assert "ck_movimiento_stock_nuevo_no_negativo" in {c["name"] for c in checks}
+
+
+@needs_pg
+def test_movimiento_stock_nuevo_negativo_rechazado_en_pg(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO productos (id, sku, nombre, unidad, costo, "
+                    "margen_pct, stock_actual, stock_minimo) VALUES "
+                    "('p-mov', 'SKU-PG-MOV', 'Alimento', 'bolsa', 100, 0.5, 10, 2)"
+                )
+            )
+            uid = conn.execute(
+                text(
+                    "INSERT INTO usuarios (id, email, password_hash, rol) VALUES "
+                    "(:id, 'mov@test.only', 'x', 'duena') RETURNING id"
+                ),
+                {"id": str(uuid.uuid4())},
+            ).scalar_one()
+            with pytest.raises(IntegrityError):
+                conn.execute(
+                    text(
+                        "INSERT INTO movimiento_stock (id, producto_id, tipo, "
+                        "cantidad, stock_previo, stock_nuevo, usuario_id) VALUES "
+                        "(:id, 'p-mov', 'ajuste', -99, 10, -1, :uid)"
+                    ),
+                    {"id": str(uuid.uuid4()), "uid": uid},
+                )
+    finally:
+        engine.dispose()
+
+
+@needs_pg
 def test_lista_precio_par_distribuidora_producto_unico(migrated_db) -> None:
     engine = create_engine(migrated_db)
     try:
