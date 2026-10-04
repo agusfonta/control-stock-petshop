@@ -190,7 +190,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-05] `stock-alertas-ajustes`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Stock en tiempo real con alertas y ajustes auditables (US-003, US-004)
   - Modelo `MovimientoStock` append-only (tipo venta/entrada/ajuste/apertura, stock_previo/nuevo, ref_id, usuario_id; sin update/delete)
   - Endpoints: `GET /api/stock?bajo_minimo=true&orden=rotacion` con badge `stock <= minimo` (RN-ST-01), `POST /api/productos/{id}/ajustar` con motivo obligatorio (solo dueña, RN-ST-03)
