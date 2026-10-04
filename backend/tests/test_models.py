@@ -11,7 +11,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Base, Cliente, Distribuidora, Producto, Usuario
+from app.models import (
+    Base,
+    Cliente,
+    Distribuidora,
+    ListaPrecio,
+    Producto,
+    Usuario,
+)
 
 
 @pytest.fixture()
@@ -143,3 +150,73 @@ def test_producto_con_distribuidora_referencia_opcional(session) -> None:
     session.add(producto)
     session.commit()
     assert producto.distribuidora_default_id == distribuidora.id
+
+
+# --- C-04: ListaPrecio (costos por distribuidora) ---
+
+
+def test_lista_precio_se_crea_y_lee_con_relaciones(session) -> None:
+    distribuidora = Distribuidora(nombre="Distri Sur")
+    session.add(distribuidora)
+    session.flush()
+    producto = _producto(sku="SKU-LISTA")
+    session.add(producto)
+    session.flush()
+    lista = ListaPrecio(
+        distribuidora_id=distribuidora.id,
+        producto_id=producto.id,
+        costo=Decimal("800"),
+    )
+    session.add(lista)
+    session.commit()
+    session.refresh(lista)
+    assert lista.id is not None
+    assert lista.costo == Decimal("800")
+    assert lista.distribuidora_id == distribuidora.id
+    assert lista.producto_id == producto.id
+    assert lista.activo is True
+
+
+def test_lista_precio_par_distribuidora_producto_unico(session) -> None:
+    distribuidora = Distribuidora(nombre="Distri Sur")
+    session.add(distribuidora)
+    session.flush()
+    producto = _producto(sku="SKU-LISTA-UNO")
+    session.add(producto)
+    session.flush()
+    session.add(
+        ListaPrecio(
+            distribuidora_id=distribuidora.id,
+            producto_id=producto.id,
+            costo=Decimal("800"),
+        )
+    )
+    session.commit()
+    session.add(
+        ListaPrecio(
+            distribuidora_id=distribuidora.id,
+            producto_id=producto.id,
+            costo=Decimal("900"),
+        )
+    )
+    with pytest.raises(IntegrityError):
+        session.flush()
+
+
+def test_lista_precio_relaciona_producto_y_distribuidora(session) -> None:
+    distribuidora = Distribuidora(nombre="Distri Sur")
+    session.add(distribuidora)
+    session.flush()
+    producto = _producto(sku="SKU-LISTA-REL")
+    session.add(producto)
+    session.flush()
+    lista = ListaPrecio(
+        distribuidora_id=distribuidora.id,
+        producto_id=producto.id,
+        costo=Decimal("800"),
+    )
+    session.add(lista)
+    session.commit()
+    session.refresh(lista)
+    assert lista.producto.sku == "SKU-LISTA-REL"
+    assert lista.distribuidora.nombre == "Distri Sur"

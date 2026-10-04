@@ -140,3 +140,48 @@ def test_indice_trgm_sobre_nombre_existe(migrated_db) -> None:
     finally:
         engine.dispose()
     assert row is not None
+
+
+@needs_pg
+def test_migracion_0003_crea_lista_precio(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        tables = set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
+    assert "lista_precio" in tables
+
+
+@needs_pg
+def test_lista_precio_par_distribuidora_producto_unico(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO distribuidoras (id, nombre) VALUES "
+                    "('d1', 'Distri')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO productos (id, sku, nombre, unidad, costo, "
+                    "margen_pct, stock_actual, stock_minimo) VALUES "
+                    "('p1', 'SKU-PG-LP', 'Alimento', 'bolsa', 100, 0.5, 0, 0)"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO lista_precio (id, distribuidora_id, producto_id, "
+                    "costo) VALUES ('lp1', 'd1', 'p1', 800)"
+                )
+            )
+            with pytest.raises(IntegrityError):
+                conn.execute(
+                    text(
+                        "INSERT INTO lista_precio (id, distribuidora_id, "
+                        "producto_id, costo) VALUES ('lp2', 'd1', 'p1', 900)"
+                    )
+                )
+    finally:
+        engine.dispose()
