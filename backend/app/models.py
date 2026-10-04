@@ -84,7 +84,6 @@ class Distribuidora(Base, AuditMixin):
     cuit = Column(String, nullable=True)
     condiciones = Column(String, nullable=True)
 
-
 class Producto(Base, AuditMixin):
     """Sellable item. precio_venta is always costo*(1+margen) (RN-PR-01)."""
 
