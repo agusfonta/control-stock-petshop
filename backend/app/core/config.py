@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     env: str = "dev"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    stock_alert_ttl_s: int = 60
 
     @model_validator(mode="after")
     def _fail_closed_demo_secret(self) -> "Settings":
