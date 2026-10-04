@@ -18,9 +18,10 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import column_property
+from sqlalchemy.orm import column_property, relationship
 
 from app.core.db import Base
 
@@ -29,6 +30,7 @@ __all__ = [
     "AuditMixin",
     "Usuario",
     "Producto",
+    "ListaPrecio",
     "Distribuidora",
     "Cliente",
 ]
@@ -122,6 +124,37 @@ class Producto(Base, AuditMixin):
 # NOTE: transient instances (never flushed) cannot evaluate this expression;
 # flush/commit + refresh before reading precio_venta.
 Producto.precio_venta = column_property(Producto.costo * (1 + Producto.margen_pct))
+
+
+class ListaPrecio(Base, AuditMixin):
+    """Costo de un producto por distribuidora (RN-PR-03). Persistence only in
+    C-04 — the per-distributor price calculation arrives with C-06/C-07."""
+
+    __tablename__ = "lista_precio"
+    __table_args__ = (
+        # One cost per (distribuidora, producto) pair.
+        UniqueConstraint(
+            "distribuidora_id",
+            "producto_id",
+            name="uq_lista_precio_distribuidora_producto",
+        ),
+    )
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    distribuidora_id = Column(
+        String(36),
+        ForeignKey("distribuidoras.id"),
+        nullable=False,
+    )
+    producto_id = Column(
+        String(36),
+        ForeignKey("productos.id"),
+        nullable=False,
+    )
+    costo = Column(Numeric(10, 2), nullable=False)
+
+    distribuidora = relationship("Distribuidora", backref="lista_precios")
+    producto = relationship("Producto", backref="lista_precios")
 
 
 class Cliente(Base, AuditMixin):

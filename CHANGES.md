@@ -149,7 +149,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ## FASE 1 — Autenticación y accesos
 
 ### [C-03] `auth-rbac`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Autenticación JWT + RBAC dueña/mostrador
   - `POST /api/auth/login` — JWT access corto + refresh, rate limiting 5/60s por IP+email, bcrypt
   - `POST /api/auth/refresh` — rotación con blacklist en Redis
