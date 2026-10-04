@@ -172,7 +172,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 > C-04 y C-09 pueden proponerse en paralelo. C-04 debe archivarse antes de C-05/C-06/C-08.
 
 ### [C-04] `catalogo-productos`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Catálogo con precios calculados (US-005 parcial, US-008 parcial)
   - Modelos: `ListaPrecio` (distribuidora_id, producto_id, costo), campos `margen_pct`, `stock_minimo` en Producto
   - Endpoints: `CRUD /api/productos`, `GET /api/productos/buscar?q=` (sku exacto + nombre trgm, paginado), `PATCH /api/productos/{id}/margen-minimo` (solo dueña, RN-PR-02/RN-ST-02)
