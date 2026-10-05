@@ -225,7 +225,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-07] `pedidos-entradas-pagos`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Circuito de compras: pedidos, entradas y pagos a distribuidoras (US-006 + cuenta simple)
   - Modelos: `PedidoCompra` (estado pendiente/recibido/cancelado + líneas), `EntradaStock`, `PagoDistribuidora` (independiente de pedidos, RN-CP-03)
   - Endpoints: `POST /api/compras/pedidos`, `POST /api/compras/pedidos/{id}/recibir` → genera Entrada (suma stock + actualiza costo RN-CP-01, pedido no mueve stock RN-CP-02), `POST /api/compras/pagos`
