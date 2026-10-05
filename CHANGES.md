@@ -208,7 +208,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-06] `distribuidoras-listas`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: ABM distribuidoras + listas de precios por origen (US-005)
   - Modelos: `Distribuidora` (nombre, contacto, cuit, condiciones), `ListaPrecio` con costo por origen
   - Endpoints: `CRUD /api/distribuidoras`, `CRUD /api/distribuidoras/{id}/listas`, `GET /api/distribuidoras/comparar?producto_id=` (costos por distribuidora, precio sugerido recalculado RN-PR-01/RN-PR-03)
