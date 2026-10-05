@@ -230,7 +230,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
   - Modelos: `PedidoCompra` (estado pendiente/recibido/cancelado + líneas), `EntradaStock`, `PagoDistribuidora` (independiente de pedidos, RN-CP-03)
   - Endpoints: `POST /api/compras/pedidos`, `POST /api/compras/pedidos/{id}/recibir` → genera Entrada (suma stock + actualiza costo RN-CP-01, pedido no mueve stock RN-CP-02), `POST /api/compras/pagos`
   - Transacción: recibir pedido descuenta/actualiza en una sola transacción + movimientos de entrada
-  - Migración 005: tablas pedido, entrada, pago_distribuidora
+  - Migración 0006 (0005 ya existe: índice de C-06): tablas pedido, entrada, pago_distribuidora
   - Tests: pedido no mueve stock, recibir sí mueve + actualiza costo, pagos independientes
 - **Dependencias**: C-04, C-06
 - **Governance**: MEDIO

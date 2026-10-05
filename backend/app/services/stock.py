@@ -1,8 +1,9 @@
 """Stock service: unica via de mutacion de existencias (C-05, decision D1).
 
 Toda mutacion de stock_actual ocurre junto a su MovimientoStock en la
-misma transaccion (RN-ST-03). C-07/C-10 reutilizan ajustar() para
-entradas y ventas. SELECT FOR UPDATE en Postgres evita el race de
+misma transaccion (RN-ST-03). aplicar_movimiento() es el nucleo sin
+commit (C-07 D3) que reutilizan recibir pedido (C-07) y ventas (C-10);
+ajustar() lo envuelve con commit para el ajuste manual. SELECT FOR UPDATE en Postgres evita el race de
 dos ajustes concurrentes sobre el mismo stock_previo.
 """
 
@@ -16,6 +17,7 @@ __all__ = [
     "ProductoNoEncontrado",
     "MotivoInvalido",
     "StockNegativo",
+    "aplicar_movimiento",
     "ajustar",
 ]
 
@@ -36,23 +38,24 @@ class StockNegativo(StockError):
     """El delta dejaria stock_nuevo < 0 (mapea a 422)."""
 
 
-def ajustar(
+def aplicar_movimiento(
     db: Session,
     producto_id: str,
     cantidad_delta: int,
-    motivo: str,
+    tipo: str,
     usuario: Usuario,
-    tipo: str = "ajuste",
+    motivo: str | None = None,
+    ref_id: str | None = None,
 ) -> tuple[Producto, MovimientoStock]:
-    """Aplica cantidad_delta al stock y crea su movimiento en 1 transaccion.
+    """Nucleo sin commit (C-07 D3): muta stock y agrega su movimiento.
 
     Lock pesimista de la fila (FOR UPDATE salvo en SQLite, que no lo
-    soporta y serializa el writer de todos modos). Rollback total ante
-    cualquier fallo: nunca queda stock a medias sin su movimiento.
+    soporta y serializa el writer de todos modos). Hace flush() pero NO
+    commit ni rollback: el dueno de la transaccion es el llamador, asi
+    N movimientos (recepcion de pedido, venta multi-linea) persisten o
+    se revierten juntos. Un IntegrityError del flush (check de la base)
+    se propaga tal cual al llamador.
     """
-    motivo_limpio = (motivo or "").strip()
-    if not motivo_limpio:
-        raise MotivoInvalido("motivo obligatorio no vacio")
     if cantidad_delta == 0:
         raise StockError("cantidad_delta no puede ser 0")
 
@@ -78,11 +81,37 @@ def ajustar(
         cantidad=cantidad_delta,
         stock_previo=stock_previo,
         stock_nuevo=stock_nuevo,
-        motivo=motivo_limpio,
+        ref_id=ref_id,
+        motivo=motivo,
         usuario_id=usuario.id,
     )
     db.add(movimiento)
+    db.flush()
+    return producto, movimiento
+
+
+def ajustar(
+    db: Session,
+    producto_id: str,
+    cantidad_delta: int,
+    motivo: str,
+    usuario: Usuario,
+    tipo: str = "ajuste",
+) -> tuple[Producto, MovimientoStock]:
+    """Aplica cantidad_delta al stock y crea su movimiento en 1 transaccion.
+
+    Envoltorio de aplicar_movimiento() que conserva el contrato de C-05:
+    valida el motivo, hace commit y revierte todo ante cualquier fallo:
+    nunca queda stock a medias sin su movimiento.
+    """
+    motivo_limpio = (motivo or "").strip()
+    if not motivo_limpio:
+        raise MotivoInvalido("motivo obligatorio no vacio")
+
     try:
+        producto, movimiento = aplicar_movimiento(
+            db, producto_id, cantidad_delta, tipo, usuario, motivo=motivo_limpio
+        )
         db.commit()
     except IntegrityError:
         db.rollback()
