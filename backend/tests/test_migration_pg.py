@@ -233,3 +233,92 @@ def test_lista_precio_par_distribuidora_producto_unico(migrated_db) -> None:
                 )
     finally:
         engine.dispose()
+
+
+COMPRAS_TABLAS = {"pedido_compra", "linea_pedido", "entrada_stock", "pago_distribuidora"}
+
+
+@needs_pg
+def test_migracion_0006_crea_las_4_tablas_de_compras(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        insp = inspect(engine)
+        tables = set(insp.get_table_names())
+        idx_pedido = {i["name"] for i in insp.get_indexes("pedido_compra")}
+        idx_pago = {i["name"] for i in insp.get_indexes("pago_distribuidora")}
+    finally:
+        engine.dispose()
+    assert COMPRAS_TABLAS <= tables
+    assert {"ix_pedido_compra_distribuidora_id", "ix_pedido_compra_estado"} <= idx_pedido
+    assert "ix_pago_distribuidora_distribuidora_id" in idx_pago
+
+
+@needs_pg
+def test_linea_pedido_cantidad_cero_rechazada_en_pg(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO distribuidoras (id, nombre) VALUES ('d-c', 'Distri')")
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO productos (id, sku, nombre, unidad, costo, "
+                    "margen_pct, stock_actual, stock_minimo) VALUES "
+                    "('p-c', 'SKU-PG-CMP', 'Alimento', 'bolsa', 100, 0.5, 0, 0)"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO usuarios (id, email, password_hash, rol) VALUES "
+                    "('u-c', 'cmp@test.only', 'x', 'duena')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO pedido_compra (id, distribuidora_id, usuario_id) "
+                    "VALUES ('ped-c', 'd-c', 'u-c')"
+                )
+            )
+            with pytest.raises(IntegrityError):
+                conn.execute(
+                    text(
+                        "INSERT INTO linea_pedido (id, pedido_id, producto_id, "
+                        "cantidad, costo_unitario) VALUES "
+                        "('l-c', 'ped-c', 'p-c', 0, 100)"
+                    )
+                )
+    finally:
+        engine.dispose()
+
+
+@needs_pg
+def test_downgrade_0006_sin_residuos_y_reupgrade(migrated_db) -> None:
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    command.downgrade(cfg, "-1")
+    engine = create_engine(migrated_db)
+    try:
+        assert not (COMPRAS_TABLAS & set(inspect(engine).get_table_names()))
+        with engine.connect() as conn:
+            tipos = {
+                r[0]
+                for r in conn.execute(
+                    text(
+                        "SELECT typname FROM pg_type WHERE typname IN "
+                        "('estado_pedido', 'metodo_pago_distribuidora')"
+                    )
+                )
+            }
+        assert tipos == set()
+    finally:
+        engine.dispose()
+    command.upgrade(cfg, "head")
+    engine = create_engine(migrated_db)
+    try:
+        assert COMPRAS_TABLAS <= set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
