@@ -267,10 +267,10 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 - **Estado**: `[ ]` pendiente
 - **Scope**: Registro de clientes e historial básico (US-007)
   - Modelo `Cliente` (nombre, teléfono, email, dirección, saldo_cc reservado — sin cuenta corriente en v1 salvo decisión)
-  - Endpoints: `CRUD /api/clientes`, `GET /api/clientes/buscar?q=`, `GET /api/clientes/{id}/ventas` (historial)
+  - Endpoints: `CRUD /api/clientes`, `GET /api/clientes/buscar?q=`
   - Integración: selector crear/buscar cliente inline en la venta (nullable)
-  - Migración 006: tabla cliente
-  - Tests: CRUD, búsqueda, historial por cliente
+  - Sin migración: tabla `clientes` existe desde `0002` (C-02)
+  - Tests: CRUD, búsqueda
 - **Dependencias**: C-03
 - **Governance**: BAJO
 - **Leer antes**:
@@ -285,10 +285,10 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 - **Estado**: `[ ]` pendiente
 - **Scope**: Venta transaccional con bloqueo duro sin stock (US-001, núcleo del sistema)
   - Modelos: `Venta` (cliente nullable, total, estado borrador/confirmada/anulada), `LineaVenta` (cantidad>0), `PagoVenta` (efectivo/transferencia/mp/tarjeta, ref_MP)
-  - Endpoints: `POST /api/ventas` (borrador + `idempotency_key`), `POST /api/ventas/{id}/confirmar` (transacción: revalida stock, crea líneas+pagos, descuenta stock, crea movimientos, encola job FE), `POST /api/ventas/{id}/anular` (solo dueña, movimiento inverso RN-VT-03)
+  - Endpoints: `POST /api/ventas` (borrador + `idempotency_key`; valida `cliente_id` inexistente/inactivo), `POST /api/ventas/{id}/confirmar` (transacción: revalida stock, crea líneas+pagos, descuenta stock, crea movimientos, encola job FE), `POST /api/ventas/{id}/anular` (solo dueña, movimiento inverso RN-VT-03), `GET /api/clientes/{id}/ventas` (historial por cliente, movido desde C-09; agrega el requirement "Historial de ventas por cliente" a la capability `clientes`)
   - Reglas: bloqueo si `cantidad > stock` (RN-VT-01), rollback total si falla algo (RN-VT-02), pagos deben igualar total (RN-VT-04)
   - Migración 007: tablas venta, linea_venta, pago_venta
-  - Tests: venta ok descuenta + movimientos, sin stock bloquea, pago incompleto no confirma, anulación devuelve stock, idempotencia
+  - Tests: venta ok descuenta + movimientos, sin stock bloquea, pago incompleto no confirma, anulación devuelve stock, idempotencia, historial por cliente
 - **Dependencias**: C-04, C-05, C-09
 - **Governance**: CRITICO
 - **Leer antes**:

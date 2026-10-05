@@ -4,6 +4,7 @@ from fastapi import APIRouter, FastAPI
 
 from app.routers import (
     auth,
+    clientes,
     compras,
     distribuidoras,
     health,
@@ -20,6 +21,7 @@ api_router.include_router(productos.router)
 api_router.include_router(distribuidoras.router)
 api_router.include_router(stock.router)
 api_router.include_router(compras.router)
+api_router.include_router(clientes.router)
 
 
 def create_app() -> FastAPI:
