@@ -16,12 +16,15 @@ from sqlalchemy.orm import Session
 from app import deps
 from app.core.texto import PARES_PLEGADO, sin_acentos, solo_digitos
 from app.models import Cliente
+from app.routers.ventas import to_venta_list_response
 from app.schemas import (
     ClienteCreate,
     ClienteListResponse,
     ClienteResponse,
     ClienteUpdate,
+    VentaListResponse,
 )
+from app.services import ventas as ventas_svc
 
 router = APIRouter(prefix="/clientes", tags=["clientes"])
 
@@ -177,6 +180,31 @@ def obtener_cliente(
     """Obtiene un cliente por ID (lookup directo, no filtra inactivos, D9)."""
     _ = current
     return _to_response(_get_or_404(db, cliente_id))
+
+
+@router.get("/{cliente_id}/ventas", response_model=VentaListResponse)
+def historial_ventas(
+    cliente_id: str,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=MAX_PAGE_SIZE),
+    db: Session = Depends(deps.get_db),
+    current: deps.Usuario = Depends(deps.get_current_user),
+) -> VentaListResponse:
+    """Historial de ventas del cliente (C-10, D12/D15).
+
+    Confirmadas y anuladas, mas reciente primero; el mostrador ve solo las
+    que registro. Un cliente dado de baja conserva su historial (200).
+    """
+    try:
+        items, total = ventas_svc.ventas_de_cliente(
+            db, cliente_id, current, page, page_size
+        )
+    except ventas_svc.NoEncontrado:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="cliente no encontrado",
+        ) from None
+    return to_venta_list_response(items, total, page, page_size)
 
 
 @router.put("/{cliente_id}", response_model=ClienteResponse)
