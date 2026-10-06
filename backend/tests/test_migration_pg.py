@@ -299,7 +299,8 @@ def test_downgrade_0006_sin_residuos_y_reupgrade(migrated_db) -> None:
 
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-    command.downgrade(cfg, "-1")
+    # C-10: head es 0007; se baja hasta 0005 (revierte 0007 y 0006).
+    command.downgrade(cfg, "0005")
     engine = create_engine(migrated_db)
     try:
         assert not (COMPRAS_TABLAS & set(inspect(engine).get_table_names()))
@@ -320,5 +321,270 @@ def test_downgrade_0006_sin_residuos_y_reupgrade(migrated_db) -> None:
     engine = create_engine(migrated_db)
     try:
         assert COMPRAS_TABLAS <= set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
+
+
+VENTAS_TABLAS = {"venta", "linea_venta", "pago_venta", "evento_outbox"}
+VENTAS_TIPOS = {"estado_venta", "metodo_pago_venta"}
+
+
+def _seed_venta(conn, sufijo: str, usuario_id: str | None = None) -> tuple[str, str]:
+    """Inserta usuario (si no se pasa), producto y venta borrador; devuelve ids."""
+    if usuario_id is None:
+        usuario_id = f"u-{sufijo}"
+        conn.execute(
+            text(
+                "INSERT INTO usuarios (id, email, password_hash, rol) VALUES "
+                "(:id, :email, 'x', 'duena')"
+            ),
+            {"id": usuario_id, "email": f"{sufijo}@test.only"},
+        )
+    conn.execute(
+        text(
+            "INSERT INTO productos (id, sku, nombre, unidad, costo, margen_pct, "
+            "stock_actual, stock_minimo) VALUES "
+            "(:id, :sku, 'Alimento', 'bolsa', 100, 0.5, 5, 0)"
+        ),
+        {"id": f"p-{sufijo}", "sku": f"SKU-PG-{sufijo}"},
+    )
+    conn.execute(
+        text(
+            "INSERT INTO venta (id, usuario_id, total, idempotency_key) VALUES "
+            "(:id, :uid, 100, :clave)"
+        ),
+        {"id": f"v-{sufijo}", "uid": usuario_id, "clave": f"k-{sufijo}"},
+    )
+    return usuario_id, f"v-{sufijo}"
+
+
+@needs_pg
+def test_migracion_0007_crea_las_4_tablas_de_ventas(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        insp = inspect(engine)
+        tables = set(insp.get_table_names())
+        idx_venta = {i["name"] for i in insp.get_indexes("venta")}
+        with engine.connect() as conn:
+            tipos = {
+                r[0]
+                for r in conn.execute(
+                    text(
+                        "SELECT typname FROM pg_type WHERE typname IN "
+                        "('estado_venta', 'metodo_pago_venta', 'tipo_movimiento')"
+                    )
+                )
+            }
+            enum_movimiento = [
+                r[0]
+                for r in conn.execute(
+                    text(
+                        "SELECT e.enumlabel FROM pg_enum e JOIN pg_type t "
+                        "ON e.enumtypid = t.oid WHERE t.typname = 'tipo_movimiento' "
+                        "ORDER BY e.enumsortorder"
+                    )
+                )
+            ]
+            parcial = conn.execute(
+                text(
+                    "SELECT indexdef FROM pg_indexes WHERE tablename = "
+                    "'evento_outbox' AND indexname = 'ix_evento_outbox_pendientes'"
+                )
+            ).scalar_one()
+    finally:
+        engine.dispose()
+    assert VENTAS_TABLAS <= tables
+    assert {
+        "ix_venta_cliente_id_created_at",
+        "ix_venta_usuario_id_created_at",
+        "ix_venta_created_at",
+    } <= idx_venta
+    assert VENTAS_TIPOS <= tipos
+    assert "WHERE (procesado_at IS NULL)" in parcial
+    # D3: el enum de movimientos no cambia con 0007.
+    assert enum_movimiento == ["venta", "entrada", "ajuste", "apertura"]
+
+
+@needs_pg
+def test_linea_venta_cantidad_cero_rechazada_en_pg(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        with engine.begin() as conn:
+            _, venta_id = _seed_venta(conn, "lv")
+            with pytest.raises(IntegrityError) as exc:
+                conn.execute(
+                    text(
+                        "INSERT INTO linea_venta (id, venta_id, producto_id, "
+                        "cantidad, precio_unit, subtotal) VALUES "
+                        "('l-lv', :v, 'p-lv', 0, 10, 10)"
+                    ),
+                    {"v": venta_id},
+                )
+        assert "ck_linea_venta_cantidad_positiva" in str(exc.value)
+    finally:
+        engine.dispose()
+
+
+@needs_pg
+def test_pago_venta_monto_cero_y_ref_mp_en_efectivo_rechazados_en_pg(
+    migrated_db,
+) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        with engine.begin() as conn:
+            _, venta_id = _seed_venta(conn, "pv")
+        with engine.begin() as conn:
+            with pytest.raises(IntegrityError) as exc:
+                conn.execute(
+                    text(
+                        "INSERT INTO pago_venta (id, venta_id, metodo, monto) "
+                        "VALUES ('g1', :v, 'efectivo', 0)"
+                    ),
+                    {"v": venta_id},
+                )
+        assert "ck_pago_venta_monto_positivo" in str(exc.value)
+        with engine.begin() as conn:
+            with pytest.raises(IntegrityError) as exc:
+                conn.execute(
+                    text(
+                        "INSERT INTO pago_venta (id, venta_id, metodo, monto, "
+                        "ref_mp) VALUES ('g2', :v, 'efectivo', 10, 'MP-1')"
+                    ),
+                    {"v": venta_id},
+                )
+        assert "ck_pago_venta_ref_mp_solo_mp" in str(exc.value)
+    finally:
+        engine.dispose()
+
+
+@needs_pg
+def test_ref_mp_unico_y_nulls_multiples_en_pg(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        with engine.begin() as conn:
+            _, venta_id = _seed_venta(conn, "rm")
+            conn.execute(
+                text(
+                    "INSERT INTO pago_venta (id, venta_id, metodo, monto, ref_mp) "
+                    "VALUES ('g1', :v, 'mp', 10, 'MP-9')"
+                ),
+                {"v": venta_id},
+            )
+            # NULLs multiples permitidos: pagos sin referencia no colisionan.
+            for pid in ("g2", "g3"):
+                conn.execute(
+                    text(
+                        "INSERT INTO pago_venta (id, venta_id, metodo, monto) "
+                        "VALUES (:id, :v, 'efectivo', 10)"
+                    ),
+                    {"id": pid, "v": venta_id},
+                )
+        with engine.begin() as conn:
+            with pytest.raises(IntegrityError) as exc:
+                conn.execute(
+                    text(
+                        "INSERT INTO pago_venta (id, venta_id, metodo, monto, "
+                        "ref_mp) VALUES ('g4', :v, 'mp', 10, 'MP-9')"
+                    ),
+                    {"v": venta_id},
+                )
+        assert "uq_pago_venta_ref_mp" in str(exc.value)
+    finally:
+        engine.dispose()
+
+
+@needs_pg
+def test_idempotency_key_unica_por_vendedor_en_pg(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        with engine.begin() as conn:
+            uid, _ = _seed_venta(conn, "ik")
+            conn.execute(
+                text(
+                    "INSERT INTO usuarios (id, email, password_hash, rol) VALUES "
+                    "('u-otro', 'otro@test.only', 'x', 'mostrador')"
+                )
+            )
+            # Misma clave, otro vendedor: permitida.
+            conn.execute(
+                text(
+                    "INSERT INTO venta (id, usuario_id, total, idempotency_key) "
+                    "VALUES ('v-otro', 'u-otro', 50, 'k-ik')"
+                )
+            )
+        with engine.begin() as conn:
+            with pytest.raises(IntegrityError) as exc:
+                conn.execute(
+                    text(
+                        "INSERT INTO venta (id, usuario_id, total, "
+                        "idempotency_key) VALUES ('v-dup', :u, 50, 'k-ik')"
+                    ),
+                    {"u": uid},
+                )
+        assert "uq_venta_usuario_idempotency_key" in str(exc.value)
+    finally:
+        engine.dispose()
+
+
+@needs_pg
+def test_evento_outbox_unico_por_tipo_y_agregado_en_pg(migrated_db) -> None:
+    engine = create_engine(migrated_db)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO evento_outbox (id, tipo, agregado_id) VALUES "
+                    "('e1', 'venta.confirmada', 'v-1')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO evento_outbox (id, tipo, agregado_id) VALUES "
+                    "('e2', 'venta.anulada', 'v-1')"
+                )
+            )
+        with engine.begin() as conn:
+            with pytest.raises(IntegrityError) as exc:
+                conn.execute(
+                    text(
+                        "INSERT INTO evento_outbox (id, tipo, agregado_id) VALUES "
+                        "('e3', 'venta.confirmada', 'v-1')"
+                    )
+                )
+        assert "uq_evento_outbox_tipo_agregado" in str(exc.value)
+    finally:
+        engine.dispose()
+
+
+@needs_pg
+def test_downgrade_0007_sin_residuos_y_reupgrade(migrated_db) -> None:
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    command.downgrade(cfg, "-1")
+    engine = create_engine(migrated_db)
+    try:
+        assert not (VENTAS_TABLAS & set(inspect(engine).get_table_names()))
+        # 0006 sigue intacta: solo se revirtio 0007.
+        assert COMPRAS_TABLAS <= set(inspect(engine).get_table_names())
+        with engine.connect() as conn:
+            tipos = {
+                r[0]
+                for r in conn.execute(
+                    text(
+                        "SELECT typname FROM pg_type WHERE typname IN "
+                        "('estado_venta', 'metodo_pago_venta')"
+                    )
+                )
+            }
+        assert tipos == set()
+    finally:
+        engine.dispose()
+    command.upgrade(cfg, "head")
+    engine = create_engine(migrated_db)
+    try:
+        assert VENTAS_TABLAS <= set(inspect(engine).get_table_names())
     finally:
         engine.dispose()

@@ -11,6 +11,7 @@ from app.routers import (
     productos,
     stock,
     usuarios,
+    ventas,
 )
 
 api_router = APIRouter(prefix="/api")
@@ -22,6 +23,7 @@ api_router.include_router(distribuidoras.router)
 api_router.include_router(stock.router)
 api_router.include_router(compras.router)
 api_router.include_router(clientes.router)
+api_router.include_router(ventas.router)
 
 
 def create_app() -> FastAPI:

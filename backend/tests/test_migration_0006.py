@@ -15,6 +15,9 @@ from sqlalchemy.exc import IntegrityError
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 COMPRAS_TABLAS = {"pedido_compra", "linea_pedido", "entrada_stock", "pago_distribuidora"}
+# C-10: las tablas de 0007 tampoco existen en el esquema previo a 0006, y los
+# upgrade apuntan a 0006 (no a head) para ejercitar solo esta migracion.
+VENTAS_TABLAS = {"venta", "linea_venta", "pago_venta", "evento_outbox"}
 
 
 @pytest.fixture()
@@ -26,7 +29,7 @@ def alembic_sqlite(tmp_path, monkeypatch):
     from app.models import Base
 
     url = f"sqlite:///{(tmp_path / 'mig.db').as_posix()}"
-    previas = [t for t in Base.metadata.sorted_tables if t.name not in COMPRAS_TABLAS]
+    previas = [t for t in Base.metadata.sorted_tables if t.name not in COMPRAS_TABLAS | VENTAS_TABLAS]
     engine = create_engine(url)
     Base.metadata.create_all(engine, tables=previas)
     engine.dispose()
@@ -53,11 +56,11 @@ def test_0006_upgrade_downgrade_upgrade_sin_residuos(alembic_sqlite) -> None:
 
     cfg, url = alembic_sqlite
     assert not (COMPRAS_TABLAS & _tablas(url))
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0006")
     assert COMPRAS_TABLAS <= _tablas(url)
     command.downgrade(cfg, "-1")
     assert not (COMPRAS_TABLAS & _tablas(url))
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0006")
     assert COMPRAS_TABLAS <= _tablas(url)
 
 
@@ -65,7 +68,7 @@ def test_0006_crea_indices_y_uniques(alembic_sqlite) -> None:
     from alembic import command
 
     cfg, url = alembic_sqlite
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0006")
     engine = create_engine(url)
     try:
         insp = inspect(engine)
@@ -88,7 +91,7 @@ def test_0006_base_rechaza_cantidad_cero_y_monto_cero(alembic_sqlite) -> None:
     from alembic import command
 
     cfg, url = alembic_sqlite
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0006")
     engine = create_engine(url)
     try:
         with engine.begin() as conn:

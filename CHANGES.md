@@ -264,7 +264,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 > C-09 puede ir en paralelo con C-04. C-10 requiere C-04 + C-05 + C-09 archivados.
 
 ### [C-09] `clientes-historial`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Registro de clientes e historial básico (US-007)
   - Modelo `Cliente` (nombre, teléfono, email, dirección, saldo_cc reservado — sin cuenta corriente en v1 salvo decisión)
   - Endpoints: `CRUD /api/clientes`, `GET /api/clientes/buscar?q=`
@@ -304,6 +304,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 - **Scope**: Facturación electrónica ARCA async con reintentos (US-002)
   - Modelo `ComprobanteFE` (venta_id, tipo ticket/FE A/B/C, cae, número, estado pendiente/emitido/error, payload, intentos)
   - Worker Redis (outbox): emite FE al confirmar venta, guarda CAE/número; si falla queda pendiente + alerta sin tumbar la venta
+  - Contrato del outbox de C-10: consumir los `evento_outbox` pendientes (`procesado_at IS NULL`, orden `created_at`, `FOR UPDATE SKIP LOCKED` en Postgres) de tipo `venta.confirmada` (emitir FE; `ComprobanteFE` con `venta_id` único) y `venta.anulada` (decidir nota de crédito) y marcar `procesado_at`; Redis solo como aviso opcional post-commit, la fuente de verdad es la tabla
   - Endpoints: `POST /api/ventas/{id}/facturar`, `GET /api/comprobantes?estado=pendiente`, `POST /api/comprobantes/{id}/reintentar`
   - Config: `ARCA_CERT/KEY`, punto de venta y CUIT por env (pendiente dato fiscal real)
   - Tests: emisión ok guarda CAE, error deja pendiente + reintento, venta confirmada aunque FE falle
