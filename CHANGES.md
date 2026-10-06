@@ -264,7 +264,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 > C-09 puede ir en paralelo con C-04. C-10 requiere C-04 + C-05 + C-09 archivados.
 
 ### [C-09] `clientes-historial`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Registro de clientes e historial básico (US-007)
   - Modelo `Cliente` (nombre, teléfono, email, dirección, saldo_cc reservado — sin cuenta corriente en v1 salvo decisión)
   - Endpoints: `CRUD /api/clientes`, `GET /api/clientes/buscar?q=`
