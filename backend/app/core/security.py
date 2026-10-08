@@ -18,7 +18,11 @@ ACCESS_TYPE = "access"
 REFRESH_TYPE = "refresh"
 LEEWAY_SECONDS = 30
 
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+_pwd = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=get_settings().bcrypt_rounds,
+)
 
 # Hash dummy para anti-timing: ante email inexistente el login compara
 # contra este valor (hash valido, bcrypt corre completo) para no revelar
@@ -31,7 +35,7 @@ class InvalidTokenError(ValueError):
 
 
 def hash_password(plain: str) -> str:
-    """Hashea un password con bcrypt (rounds default 12 de passlib)."""
+    """Hashea un password con bcrypt (rounds de `Settings.bcrypt_rounds`)."""
     return _pwd.hash(plain)
 
 
