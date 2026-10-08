@@ -105,7 +105,7 @@ The system SHALL garantizar que la `idempotency_key` identifica de forma única 
 
 ### Requirement: Confirmar venta en una transacción
 
-The system SHALL exponer `POST /api/ventas/{id}/confirmar`, para los roles `duena` y `mostrador`, que acepta `{pagos: [{metodo, monto, ref_mp?}]}` y, para una venta en `borrador` y en una única transacción atómica: revalida el stock de todas las líneas (RN-VT-01), valida los pagos (RN-VT-04), resta la `cantidad` de cada línea al `stock_actual` de su producto creando por línea un `MovimientoStock` tipo `venta` con `cantidad` negativa, `stock_previo`, `stock_nuevo`, el usuario que confirma y `ref_id` igual al id de la venta, registra los pagos, marca la venta `confirmada` con fecha y usuario de confirmación y registra el evento de venta confirmada (ver "Evento de venta para facturación electrónica"). Si cualquier paso falla, nada de lo anterior SHALL persistir (RN-VT-02). Responde `200` con el detalle de la venta confirmada. Un `mostrador` solo puede confirmar ventas propias; la venta de otro usuario SHALL responder `404` para él. La dueña puede confirmar cualquier venta.
+The system SHALL exponer `POST /api/ventas/{id}/confirmar`, para los roles `duena` y `mostrador`, que acepta `{pagos: [{metodo, monto, ref_mp?}]}` y, para una venta en `borrador` y en una única transacción atómica: revalida el stock de todas las líneas (RN-VT-01), valida los pagos (RN-VT-04), resta la `cantidad` de cada línea al `stock_actual` de su producto creando por línea un `MovimientoStock` tipo `venta` con `cantidad` negativa, `stock_previo`, `stock_nuevo`, el usuario que confirma y `ref_id` igual al id de la venta, registra los pagos, marca la venta `confirmada` con fecha y usuario de confirmación. Confirmar NO SHALL depender de servicios externos (ARCA, Redis); no registra ningún evento (el registro de eventos para facturación electrónica lo introduce C-11). Si cualquier paso falla, nada de lo anterior SHALL persistir (RN-VT-02). Responde `200` con el detalle de la venta confirmada. Un `mostrador` solo puede confirmar ventas propias; la venta de otro usuario SHALL responder `404` para él. La dueña puede confirmar cualquier venta.
 
 #### Scenario: Venta confirmada descuenta stock y crea movimientos
 
@@ -197,7 +197,7 @@ The system SHALL permitir solo las transiciones `borrador → confirmada` y `con
 
 ### Requirement: Anular venta solo por dueña con movimiento inverso
 
-The system SHALL exponer `POST /api/ventas/{id}/anular`, exclusivo del rol `duena`, que acepta `{motivo}` (texto obligatorio no vacío, máximo 300 caracteres) y, para una venta `confirmada` y en una única transacción atómica: suma la `cantidad` de cada línea al `stock_actual` de su producto creando por línea un `MovimientoStock` tipo `venta` con `cantidad` positiva, `stock_previo`, `stock_nuevo`, la dueña como usuaria, `ref_id` igual al id de la venta y un motivo que identifica la anulación; marca la venta `anulada` con fecha, usuaria y motivo de anulación; y registra el evento de venta anulada (RN-VT-03). Los movimientos originales de la venta no se modifican ni se borran. Los pagos registrados se conservan sin cambios (la anulación no registra devolución de dinero). Productos dados de baja después de la venta no impiden anularla. Si cualquier paso falla, nada SHALL persistir. Responde `200` con el detalle de la venta anulada.
+The system SHALL exponer `POST /api/ventas/{id}/anular`, exclusivo del rol `duena`, que acepta `{motivo}` (texto obligatorio no vacío, máximo 300 caracteres) y, para una venta `confirmada` y en una única transacción atómica: suma la `cantidad` de cada línea al `stock_actual` de su producto creando por línea un `MovimientoStock` tipo `venta` con `cantidad` positiva, `stock_previo`, `stock_nuevo`, la dueña como usuaria, `ref_id` igual al id de la venta y un motivo que identifica la anulación; marca la venta `anulada` con fecha, usuaria y motivo de anulación (RN-VT-03); no registra ningún evento. Los movimientos originales de la venta no se modifican ni se borran. Los pagos registrados se conservan sin cambios (la anulación no registra devolución de dinero). Productos dados de baja después de la venta no impiden anularla. Si cualquier paso falla, nada SHALL persistir. Responde `200` con el detalle de la venta anulada.
 
 #### Scenario: Anulación devuelve stock con movimiento inverso
 
@@ -258,33 +258,23 @@ The system SHALL exponer `GET /api/ventas/{id}` con el detalle de la venta (esta
 - **WHEN** un cliente sin token llama a `GET /api/ventas` o a `GET /api/ventas/{id}`
 - **THEN** el sistema responde `401`
 
-### Requirement: Evento de venta para facturación electrónica
+### Requirement: Confirmar y anular sin eventos de facturación
 
-The system SHALL registrar, en la misma transacción que confirma una venta, exactamente un evento pendiente `venta.confirmada` que referencia a esa venta, y en la misma transacción que la anula, exactamente un evento pendiente `venta.anulada`. Los eventos SHALL persistir si y solo si la transición persiste, nunca duplicarse para la misma venta y transición aunque la operación se repita, y quedar pendientes de procesar hasta que un consumidor posterior (facturación electrónica, C-11) los marque como procesados. Confirmar o anular una venta NO SHALL depender de la disponibilidad de servicios externos (ARCA, Redis): la venta se confirma aunque no exista ningún consumidor.
+The system SHALL confirmar y anular ventas sin registrar eventos ni bandeja de salida (outbox) para facturación electrónica: la persistencia de la venta, sus líneas, sus pagos y sus movimientos de stock es lo único que cambia. Confirmar o anular una venta NO SHALL depender de la disponibilidad de servicios externos (ARCA, Redis). El registro de eventos para facturación electrónica queda a cargo de C-11, que lo define con el contrato real de ARCA.
 
-#### Scenario: Confirmar registra un evento pendiente
+#### Scenario: Confirmar y anular no dejan eventos
 
-- **WHEN** se confirma una venta
-- **THEN** existe exactamente un evento `venta.confirmada` pendiente que referencia a esa venta
-
-#### Scenario: Confirmación fallida no deja evento
-
-- **WHEN** la confirmación de una venta es rechazada por stock insuficiente o falla a mitad de la transacción
-- **THEN** no existe ningún evento para esa venta
-
-#### Scenario: Reintentos no duplican eventos
-
-- **WHEN** una venta se confirma dos veces con los mismos pagos y luego se anula dos veces
-- **THEN** existe exactamente un evento `venta.confirmada` y exactamente un evento `venta.anulada` para esa venta
+- **WHEN** se confirma una venta y luego se anula
+- **THEN** la base no contiene ninguna tabla de eventos ni bandeja de salida (`evento_outbox`) y ambas operaciones persisten solo venta, pagos y movimientos de stock
 
 ### Requirement: Migración 0007 crea las tablas de ventas
 
-The system SHALL incluir la migración Alembic `0007` (hija de `0006`) que crea las tablas de ventas, líneas de venta, pagos de venta y eventos pendientes con sus claves foráneas, restricciones (`cantidad > 0`, `precio_unit > 0`, `monto > 0`, `total > 0`, un producto por venta, una clave de idempotencia por vendedor, un `ref_mp` por pago, `ref_mp` solo en pagos `mp`, fechas de confirmación y anulación presentes según el estado, un evento por venta y tipo) e índices para el historial por cliente, el listado por vendedor y por fecha, y cuyo downgrade elimina esas tablas y sus tipos sin residuos. Las líneas y los pagos de venta SHALL ser inmutables: no se modifican ni se borran.
+The system SHALL incluir la migración Alembic `0007` (hija de `0006`) que crea las tablas de ventas, líneas de venta, pagos de venta y eventos pendientes (`evento_outbox`, eliminada luego por la migración `0009`) con sus claves foráneas, restricciones (`cantidad > 0`, `precio_unit > 0`, `monto > 0`, `total > 0`, un producto por venta, una clave de idempotencia por vendedor, un `ref_mp` por pago, `ref_mp` solo en pagos `mp`, fechas de confirmación y anulación presentes según el estado, un evento por venta y tipo en la tabla `evento_outbox`) e índices para el historial por cliente, el listado por vendedor y por fecha, y cuyo downgrade elimina esas tablas y sus tipos sin residuos. Las líneas y los pagos de venta SHALL ser inmutables: no se modifican ni se borran.
 
 #### Scenario: Upgrade y downgrade limpios
 
 - **WHEN** se ejecuta `alembic upgrade head`, luego `alembic downgrade -1` y de nuevo `alembic upgrade head`
-- **THEN** las cuatro tablas existen tras cada upgrade y no quedan tablas ni tipos residuales tras el downgrade
+- **THEN** las cuatro tablas (con `evento_outbox`, hasta que `0009` la elimina) existen tras cada upgrade y no quedan tablas ni tipos residuales tras el downgrade
 
 #### Scenario: La base rechaza datos inválidos
 
