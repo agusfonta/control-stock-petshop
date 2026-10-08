@@ -5,3 +5,6 @@ node_modules/
 dist/
 .pytest_cache/
 .venv/
+dev.db
+*.db-journal
+*.log

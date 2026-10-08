@@ -1,3 +1,167 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Identidad derivada del logo (UX8). Sin modo oscuro (fuera de alcance, C-13). */
+:root {
+  --radius: 0.75rem;
+
+  --background: #fafaf9;
+  --foreground: #1c2024;
+  --card: #ffffff;
+  --card-foreground: #1c2024;
+  --popover: #ffffff;
+  --popover-foreground: #1c2024;
+
+  /* Teal oscuro: contraste con blanco 4.88:1 (AA para texto). */
+  --primary: #0b7f74;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f2f0;
+  --secondary-foreground: #1c2024;
+  --muted: #f1f2f0;
+  --muted-foreground: #5b6168;
+  --accent: #e4f2f0;
+  --accent-foreground: #08574f;
+
+  --destructive: #b42318;
+  --warning: #b54708;
+  --warning-soft: #fef0dc;
+  --success: #067647;
+
+  --border: #e3e4e0;
+  /* Borde de campos: 3.3:1 sobre blanco (WCAG 1.4.11, componentes de interfaz). */
+  --input: #8a8f89;
+  --ring: #0b7f74;
+
+  /* Teal del logo: solo elementos grandes y acentos, nunca texto chico. */
+  --brand: #149a8c;
+  /* Fondo del logo: solo panel de marca del login y cabecera del sidebar. */
+  --blush: #f0e4e4;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c2024;
+  --sidebar-primary: #0b7f74;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e4f2f0;
+  --sidebar-accent-foreground: #08574f;
+  --sidebar-border: #e3e4e0;
+  --sidebar-ring: #0b7f74;
+
+  --chart-1: #0b7f74;
+  --chart-2: #149a8c;
+  --chart-3: #b54708;
+  --chart-4: #5b6168;
+  --chart-5: #b42318;
+}
+
+@theme inline {
+  --font-sans: "Figtree Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-blush: var(--blush);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: "tnum" 0;
+  }
+
+  /* Un solo foco visible, coherente en toda la app (UX12). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Objetivos tactiles >= 44 px en pantallas tactiles (spec accesibilidad). */
+  @media (pointer: coarse) {
+    button,
+    [role="button"],
+    [role="menuitem"],
+    [role="tab"],
+    a.touch-target,
+    input:not([type="checkbox"]):not([type="radio"]),
+    select {
+      min-height: 44px;
+    }
+
+    /* Botones solo con icono (llevan aria-label): tambien 44 px de ancho. */
+    button[aria-label] {
+      min-width: 44px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Importes alineados: numeros tabulares (UX7). */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.dark {
+  --sidebar: hsl(240 5.9% 10%);
+  --sidebar-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-primary: hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
