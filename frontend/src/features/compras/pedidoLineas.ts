@@ -2,7 +2,7 @@ import { type Money, toCents } from "@/shared/lib/money";
 import type { StockItem } from "@/shared/api/types";
 
 /** Tope de lineas por pedido que acepta la API. */
-export const MAX_LINEAS_PEDIDO = 100;
+const MAX_LINEAS_PEDIDO = 100;
 
 /** Linea de un pedido en armado: solo producto y cantidad (el costo lo fija el servidor). */
 export interface LineaBorrador {

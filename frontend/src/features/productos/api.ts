@@ -15,7 +15,7 @@ import type {
 
 export const PAGE_SIZE = 20;
 
-export interface ProductosParams {
+interface ProductosParams {
   page: number;
   /** Texto de busqueda ya normalizado (vacio = listado completo). */
   q: string;

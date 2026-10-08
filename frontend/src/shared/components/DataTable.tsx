@@ -14,7 +14,7 @@ export interface DataTableColumn<T> {
   className?: string;
 }
 
-export interface DataTablePagination {
+interface DataTablePagination {
   /** Pagina actual, base 1. */
   page: number;
   pageSize: number;

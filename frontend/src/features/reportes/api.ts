@@ -58,7 +58,7 @@ export function useMasVendidos(params: MasVendidosParams, enabled = true): UseQu
   });
 }
 
-export interface MargenesParams {
+interface MargenesParams {
   desde: string | undefined;
   hasta: string | undefined;
   page: number;

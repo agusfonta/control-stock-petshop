@@ -32,7 +32,7 @@ export interface NavGroup {
 }
 
 /** Navegacion lateral agrupada por area (UX1). */
-export const NAV_GROUPS: NavGroup[] = [
+const NAV_GROUPS: NavGroup[] = [
   {
     label: "Vender",
     items: [

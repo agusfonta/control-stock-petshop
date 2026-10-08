@@ -26,7 +26,7 @@ export interface CartResult {
   aviso: string | null;
 }
 
-export function avisoStock(stock: number): string {
+function avisoStock(stock: number): string {
   return `Solo hay ${stock} ${stock === 1 ? "unidad" : "unidades"}`;
 }
 

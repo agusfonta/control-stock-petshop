@@ -14,7 +14,7 @@ import { useAnularVenta } from "@/features/ventas/api";
 import { ApiError } from "@/shared/api/errors";
 import { notifyError, notifySuccess } from "@/shared/lib/toast";
 
-export const MOTIVO_MAX = 300;
+const MOTIVO_MAX = 300;
 
 interface AnularVentaDialogProps {
   ventaId: string;

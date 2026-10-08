@@ -18,7 +18,7 @@ import {
 import type { Cliente, Faltante, LineaVenta, PagoVentaInput, Producto } from "@/shared/api/types";
 
 /** Intento de cobro en curso: `idempotencyKey` se reutiliza mientras el contenido no cambie (D9). */
-export interface CheckoutState {
+interface CheckoutState {
   signature: string;
   idempotencyKey: string;
   /** Id del borrador ya creado en el servidor (para reintentar la confirmacion sin duplicar). */

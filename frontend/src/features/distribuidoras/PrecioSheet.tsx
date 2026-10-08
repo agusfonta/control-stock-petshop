@@ -16,7 +16,7 @@ import type { Producto } from "@/shared/api/types";
 import { centsToApi, formatARS } from "@/shared/lib/money";
 import { notifyError, notifySuccess } from "@/shared/lib/toast";
 
-export const MENSAJE_DUPLICADO = "Ese producto ya está en la lista de esta distribuidora";
+const MENSAJE_DUPLICADO = "Ese producto ya está en la lista de esta distribuidora";
 
 const schema = z.object({
   producto_id: z.string().min(1, "Elegí un producto"),

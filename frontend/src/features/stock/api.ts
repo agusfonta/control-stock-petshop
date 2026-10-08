@@ -16,7 +16,7 @@ export function useAlertasStock(): UseQueryResult<AlertasStock> {
   });
 }
 
-export interface StockParams {
+interface StockParams {
   page: number;
   soloBajoMinimo: boolean;
 }
@@ -40,7 +40,7 @@ export function useStockList({ page, soloBajoMinimo }: StockParams): UseQueryRes
 }
 
 /** Convierte un producto del catalogo en fila de stock con la misma regla de `bajo_minimo` (D13). */
-export function aStockItem(p: Producto): StockItem {
+function aStockItem(p: Producto): StockItem {
   return { ...p, bajo_minimo: p.stock_actual <= p.stock_minimo };
 }
 

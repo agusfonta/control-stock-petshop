@@ -18,7 +18,7 @@ import { toCents } from "@/shared/lib/money";
 type FilaMetodo = VentasDiaReporte["por_metodo"][number];
 
 /** `mp` solo aparece si tuvo monto (decision por defecto 12). */
-export function metodosVisibles(filas: FilaMetodo[]): FilaMetodo[] {
+function metodosVisibles(filas: FilaMetodo[]): FilaMetodo[] {
   return filas.filter((f) => f.metodo !== "mp" || toCents(f.monto) > 0);
 }
 

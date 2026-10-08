@@ -5,7 +5,6 @@
 import type { Money } from "@/shared/lib/money";
 
 export type { Faltante } from "@/shared/api/errors";
-export type { Money };
 
 export type Rol = "duena" | "mostrador";
 export type Unidad = "unidad" | "bolsa" | "caja";
@@ -80,7 +79,7 @@ export interface AlertasStock {
   total_bajo_minimo: number;
   items: StockItem[];
 }
-export interface Movimiento {
+interface Movimiento {
   id: string;
   producto_id: string;
   tipo: "venta" | "entrada" | "ajuste" | "apertura";
@@ -256,12 +255,6 @@ export interface PagoVentaInput {
   metodo: MetodoPagoVenta;
   monto: string;
 }
-export interface ConfirmarVentaRequest {
-  pagos: PagoVentaInput[];
-}
-export interface AnularVentaRequest {
-  motivo: string;
-}
 
 // Reportes
 export interface VentasDiaReporte {
@@ -315,7 +308,7 @@ export interface MargenProducto {
   margen_bruto: Money;
   margen_pct: Money | null;
 }
-export interface MargenesTotales {
+interface MargenesTotales {
   ingresos: Money;
   costo: Money;
   margen_bruto: Money;

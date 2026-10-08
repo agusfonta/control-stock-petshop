@@ -8,7 +8,7 @@ export interface AuthBridge {
   expire: () => void;
 }
 
-export type QueryValue = string | number | boolean | null | undefined;
+type QueryValue = string | number | boolean | null | undefined;
 
 export interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";

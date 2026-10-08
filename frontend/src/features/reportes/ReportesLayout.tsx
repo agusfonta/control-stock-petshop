@@ -10,7 +10,7 @@ interface SeccionReporte {
   permiso?: Permiso;
 }
 
-export const SECCIONES_REPORTES: SeccionReporte[] = [
+const SECCIONES_REPORTES: SeccionReporte[] = [
   { to: "/reportes/ventas-dia", label: "Ventas del día" },
   { to: "/reportes/reposicion", label: "Reposición" },
   { to: "/reportes/mas-vendidos", label: "Más vendidos", permiso: "reportes.completos" },

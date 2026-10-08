@@ -2,13 +2,13 @@ import { QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/shared/api/errors";
 
 /** Reintenta una sola vez y solo errores de red/5xx; nunca 4xx (D6). */
-export function shouldRetry(failureCount: number, error: unknown): boolean {
+function shouldRetry(failureCount: number, error: unknown): boolean {
   if (failureCount >= 1) return false;
   if (error instanceof ApiError) return error.status === 0 || error.status >= 500;
   return true;
 }
 
-export function createQueryClient(): QueryClient {
+function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {

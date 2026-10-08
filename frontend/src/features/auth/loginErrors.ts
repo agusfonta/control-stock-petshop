@@ -1,6 +1,6 @@
 import { ApiError } from "@/shared/api/errors";
 
-export type LoginField = "email" | "password";
+type LoginField = "email" | "password";
 
 export interface LoginFailure {
   /** Mensaje general para el Alert del formulario (sin indicar si fallo el email o la clave). */

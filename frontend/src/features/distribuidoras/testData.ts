@@ -30,7 +30,7 @@ export function makeListaPrecio(overrides: Partial<ListaPrecio> = {}): ListaPrec
   };
 }
 
-export function makeLineaPedido(overrides: Partial<LineaPedido> = {}): LineaPedido {
+function makeLineaPedido(overrides: Partial<LineaPedido> = {}): LineaPedido {
   return { id: "l-1", producto_id: "p-1", cantidad: 10, costo_unitario: "18000.00", subtotal: "180000.00", ...overrides };
 }
 

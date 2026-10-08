@@ -31,7 +31,7 @@ interface OpcionesCobro {
   reintento?: boolean;
 }
 
-export function pagosParaApi(pagos: readonly Pick<PagoDraft, "metodo" | "montoCents">[]): PagoVentaInput[] {
+function pagosParaApi(pagos: readonly Pick<PagoDraft, "metodo" | "montoCents">[]): PagoVentaInput[] {
   return pagos.map((p) => ({ metodo: p.metodo, monto: centsToApi(p.montoCents) }));
 }
 

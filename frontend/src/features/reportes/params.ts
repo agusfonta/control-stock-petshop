@@ -1,6 +1,6 @@
 /** Fechas y parametros de los reportes: todo `YYYY-MM-DD` local, bordes inclusive (spec C-14). */
 
-export const MAX_DIAS_PERIODO = 366;
+const MAX_DIAS_PERIODO = 366;
 
 export interface Periodo {
   /** `""` = que decida el servidor (ultimos 30 dias). */

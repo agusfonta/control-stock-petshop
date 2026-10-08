@@ -21,21 +21,6 @@ import { VentasDiaPage } from "@/features/reportes/VentasDiaPage";
 import { VentaDetallePage } from "@/features/ventas/VentaDetallePage";
 import { VentasPage } from "@/features/ventas/VentasPage";
 import { NotFoundPage } from "@/shared/components/NotFoundPage";
-import { PlaceholderPage } from "@/shared/components/PlaceholderPage";
-
-interface PlaceholderRoute {
-  path: string;
-  title: string;
-  description: string;
-}
-
-/** Pantallas de B2-B5: placeholders con la ruta, el titulo y el rol definitivos. */
-const COMMON_ROUTES: PlaceholderRoute[] = [
-];
-
-function placeholder({ path, title, description }: PlaceholderRoute): ReactElement {
-  return <Route key={path} path={path} element={<PlaceholderPage title={title} description={description} />} />;
-}
 
 /** Restaura la sesion una sola vez al montar (pista + refresh + me). */
 function useSessionBootstrap(): void {
@@ -66,7 +51,6 @@ export function AppRoutes(): ReactElement {
           <Route path="distribuidoras/:id" element={<DistribuidoraDetallePage />} />
           <Route path="compras" element={<ComprasPage />} />
           <Route path="compras/pedidos/:id" element={<PedidoDetallePage />} />
-          {COMMON_ROUTES.map(placeholder)}
           <Route path="reportes" element={<Navigate to="/reportes/ventas-dia" replace />} />
           <Route path="reportes/ventas-dia" element={<VentasDiaPage />} />
           <Route path="reportes/reposicion" element={<ReposicionPage />} />

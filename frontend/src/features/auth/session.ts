@@ -7,7 +7,7 @@ import type { LoginRequest, Me, TokenResponse } from "@/shared/api/types";
 /** Pista de sesion (D4): sin endpoint de logout, evita restaurar una sesion cerrada. */
 export const PISTA_SESION = "animall.session";
 
-export type SessionStatus = "loading" | "authenticated" | "anonymous";
+type SessionStatus = "loading" | "authenticated" | "anonymous";
 
 interface SessionState {
   status: SessionStatus;
