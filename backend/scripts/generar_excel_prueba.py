@@ -55,11 +55,17 @@ ENCABEZADOS_SUCIA = [
 ]
 VACIA = [None] * len(ENCABEZADOS_SUCIA)
 FILAS_SUCIA = [
-    ["BAL-ADU-15 ", "  Balanceado adulto 15kg", "ALIMENTOS", "distribuidora  sur", "$ 18.500,50", "35%", 20, 5, "en oferta"],
+    [
+        "BAL-ADU-15 ", "  Balanceado adulto 15kg", "ALIMENTOS", "distribuidora  sur",
+        "$ 18.500,50", "35%", 20, 5, "en oferta",
+    ],
     ["PIP-CAN-M", "Pipeta antiparasitaria M", "Antiparasitarios", "Distribuidora Sur", "$ 3.200", "50", 30, 10, None],
     VACIA,
     ["JUG-SOG-ALG", "Juguete soga de algodon", "Juguetes", "Distribuidora Norte", "1.500,00", 0.6, 12, 4, None],
-    ["ACC COL M", "Collar nylon talle M", "Accesorios", "Distribuidora Norte", "2500", "0,35", 8, 2, "SKU con espacios"],
+    [
+        "ACC COL M", "Collar nylon talle M", "Accesorios", "Distribuidora Norte",
+        "2500", "0,35", 8, 2, "SKU con espacios",
+    ],
     ["DUP-1", "Producto repetido A", "Higiene", "Distribuidora Sur", "1000", "20", 5, 1, None],
     ["DUP-1", "Producto repetido B", "Higiene", "Distribuidora Sur", "1100", "20", 5, 1, None],
     ["SIN-COSTO", "Producto sin costo", "Higiene", "Distribuidora Sur", 0, "30", 4, 1, None],
