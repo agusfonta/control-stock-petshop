@@ -13,3 +13,6 @@ pytest==8.4.1
 pytest-asyncio==0.24.0
 redis==7.*
 fakeredis==2.*
+tzdata==2026.4
+openpyxl==3.1.5
+python-multipart==0.0.20

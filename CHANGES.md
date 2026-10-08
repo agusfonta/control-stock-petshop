@@ -243,7 +243,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-08] `migracion-excel`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Carga inicial desde Excel del local (Flujo 3)
   - Endpoint: `POST /api/migracion/productos` (solo dueña) — sube `plantilla_productos.csv`, valida duplicados (sku) y costos > 0
   - Lógica: crea productos con stock inicial + `MovimientoStock` tipo `apertura` por cada fila válida; reporte de errores por fila
@@ -282,7 +282,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-10] `ventas-mostrador`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Venta transaccional con bloqueo duro sin stock (US-001, núcleo del sistema)
   - Modelos: `Venta` (cliente nullable, total, estado borrador/confirmada/anulada), `LineaVenta` (cantidad>0), `PagoVenta` (efectivo/transferencia/mp/tarjeta, ref_MP)
   - Endpoints: `POST /api/ventas` (borrador + `idempotency_key`; valida `cliente_id` inexistente/inactivo), `POST /api/ventas/{id}/confirmar` (transacción: revalida stock, crea líneas+pagos, descuenta stock, crea movimientos, encola job FE), `POST /api/ventas/{id}/anular` (solo dueña, movimiento inverso RN-VT-03), `GET /api/clientes/{id}/ventas` (historial por cliente, movido desde C-09; agrega el requirement "Historial de ventas por cliente" a la capability `clientes`)
@@ -344,6 +344,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 - **Scope**: SPA de mostrador rápida en tablet (<60s por venta, US-001 UI)
   - `features/pos`: buscador con debounce + soporte lector HID (código barras como teclado), carrito con validación de stock en memoria, registro de pagos (efectivo/transferencia/MP), ticket imprimible (térmica)
   - Páginas: `/pos` (mostrador), `/stock` (consulta rápida), `/clientes` (selector inline)
+  - Frontend: `features/reportes` + páginas `/reportes/*` (solo dueña ve completo, mostrador ve básico)
   - Estado: Zustand + React Query; JWT con refresh; RBAC en rutas (mostrador vs dueña)
   - Tests: flujo buscar→agregar→cobrar→ticket (Playwright o Vitest + MSW)
 - **Dependencias**: C-10, C-11, C-12
@@ -357,12 +358,11 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-14] `reportes-basicos`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` pendiente
 - **Scope**: Reportes para decidir compras (US-009)
   - Endpoints: `GET /api/reportes/ventas-dia`, `/mas-vendidos`, `/reposicion` (bajo mínimo + rotación), `/margenes`
-  - Jobs Redis para agregados pesados; cache TTL corto
-  - Frontend: `features/reportes` + páginas `/reportes/*` (solo dueña ve completo, mostrador ve básico)
-  - Tests: agregados correctos, aislamiento por fecha, cache invalidation tras venta
+  - Sin Redis/cache: agregados SQL al vuelo (D2)
+  - Tests: agregados correctos, aislamiento por fecha, reflejo inmediato tras venta/anulación
 - **Dependencias**: C-10, C-05
 - **Governance**: BAJO
 - **Leer antes**:
