@@ -68,7 +68,7 @@ async def test_mostrador_crea_borrador_con_precio_y_total_del_servidor(client) -
 async def test_crear_borrador_no_toca_stock_movimientos_ni_pagos(
     client, db_session_factory
 ) -> None:
-    from app.models import EventoOutbox, MovimientoStock, PagoVenta
+    from app.models import MovimientoStock, PagoVenta
 
     duena = await login_duena(client)
     a, b = await _a_y_b(client, duena)
@@ -78,7 +78,6 @@ async def test_crear_borrador_no_toca_stock_movimientos_ni_pagos(
     assert movimientos_de(db_session_factory, a) == []
     assert contar(db_session_factory, MovimientoStock) == 0
     assert contar(db_session_factory, PagoVenta) == 0
-    assert contar(db_session_factory, EventoOutbox) == 0
 
 
 async def test_duena_tambien_crea_borrador(client) -> None:

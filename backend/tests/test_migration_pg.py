@@ -299,7 +299,7 @@ def test_downgrade_0006_sin_residuos_y_reupgrade(migrated_db) -> None:
 
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-    # C-14: head es 0008; se baja hasta 0005 (revierte 0008, 0007 y 0006).
+    # Se baja hasta 0005 (revierte 0009, 0008, 0007 y 0006).
     command.downgrade(cfg, "0005")
     engine = create_engine(migrated_db)
     try:
@@ -325,7 +325,7 @@ def test_downgrade_0006_sin_residuos_y_reupgrade(migrated_db) -> None:
         engine.dispose()
 
 
-VENTAS_TABLAS = {"venta", "linea_venta", "pago_venta", "evento_outbox"}
+VENTAS_TABLAS = {"venta", "linea_venta", "pago_venta"}
 VENTAS_TIPOS = {"estado_venta", "metodo_pago_venta"}
 
 
@@ -359,7 +359,7 @@ def _seed_venta(conn, sufijo: str, usuario_id: str | None = None) -> tuple[str, 
 
 
 @needs_pg
-def test_migracion_0007_crea_las_4_tablas_de_ventas(migrated_db) -> None:
+def test_migracion_0007_crea_las_3_tablas_de_ventas(migrated_db) -> None:
     engine = create_engine(migrated_db)
     try:
         insp = inspect(engine)
@@ -385,12 +385,6 @@ def test_migracion_0007_crea_las_4_tablas_de_ventas(migrated_db) -> None:
                     )
                 )
             ]
-            parcial = conn.execute(
-                text(
-                    "SELECT indexdef FROM pg_indexes WHERE tablename = "
-                    "'evento_outbox' AND indexname = 'ix_evento_outbox_pendientes'"
-                )
-            ).scalar_one()
     finally:
         engine.dispose()
     assert VENTAS_TABLAS <= tables
@@ -400,7 +394,6 @@ def test_migracion_0007_crea_las_4_tablas_de_ventas(migrated_db) -> None:
         "ix_venta_created_at",
     } <= idx_venta
     assert VENTAS_TIPOS <= tipos
-    assert "WHERE (procesado_at IS NULL)" in parcial
     # D3: el enum de movimientos no cambia con 0007.
     assert enum_movimiento == ["venta", "entrada", "ajuste", "apertura"]
 
@@ -527,48 +520,18 @@ def test_idempotency_key_unica_por_vendedor_en_pg(migrated_db) -> None:
 
 
 @needs_pg
-def test_evento_outbox_unico_por_tipo_y_agregado_en_pg(migrated_db) -> None:
-    engine = create_engine(migrated_db)
-    try:
-        with engine.begin() as conn:
-            conn.execute(
-                text(
-                    "INSERT INTO evento_outbox (id, tipo, agregado_id) VALUES "
-                    "('e1', 'venta.confirmada', 'v-1')"
-                )
-            )
-            conn.execute(
-                text(
-                    "INSERT INTO evento_outbox (id, tipo, agregado_id) VALUES "
-                    "('e2', 'venta.anulada', 'v-1')"
-                )
-            )
-        with engine.begin() as conn:
-            with pytest.raises(IntegrityError) as exc:
-                conn.execute(
-                    text(
-                        "INSERT INTO evento_outbox (id, tipo, agregado_id) VALUES "
-                        "('e3', 'venta.confirmada', 'v-1')"
-                    )
-                )
-        assert "uq_evento_outbox_tipo_agregado" in str(exc.value)
-    finally:
-        engine.dispose()
-
-
-@needs_pg
 def test_downgrade_0007_sin_residuos_y_reupgrade(migrated_db) -> None:
     from alembic import command
     from alembic.config import Config
 
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-    # C-14: head es 0008; se baja hasta 0006 (revierte 0008 y 0007).
+    # Se baja hasta 0006 (revierte 0009, 0008 y 0007).
     command.downgrade(cfg, "0006")
     engine = create_engine(migrated_db)
     try:
         assert not (VENTAS_TABLAS & set(inspect(engine).get_table_names()))
-        # 0006 sigue intacta: solo se revirtio 0007 (y 0008 antes).
+        # 0006 sigue intacta: solo se revirtio 0007 (y 0009 y 0008 antes).
         assert COMPRAS_TABLAS <= set(inspect(engine).get_table_names())
         with engine.connect() as conn:
             tipos = {
@@ -668,7 +631,7 @@ def test_downgrade_0008_sin_residuos_y_reupgrade_en_pg(migrated_db) -> None:
             _seed_linea_previa(conn, "d8")
     finally:
         engine.dispose()
-    command.downgrade(cfg, "-1")
+    command.downgrade(cfg, "0007")
     engine = create_engine(migrated_db)
     try:
         insp = inspect(engine)

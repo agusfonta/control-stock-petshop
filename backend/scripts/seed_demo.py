@@ -62,13 +62,22 @@ DISTRIBUIDORAS = (
 
 # (sku, nombre, marca, categoria, unidad, costo, margen, stock_inicial, minimo, distribuidora)
 PRODUCTOS = (
-    ("RC-MINI-3KG", "Royal Canin Mini Adulto 3kg", "Royal Canin", "alimentos", "bolsa", "18000", "0.35", 30, 10, "petfood"),
-    ("RC-MINI-10KG", "Royal Canin Mini Adulto 10kg", "Royal Canin", "alimentos", "bolsa", "52000", "0.35", 14, 10, "petfood"),
+    (
+        "RC-MINI-3KG", "Royal Canin Mini Adulto 3kg", "Royal Canin", "alimentos", "bolsa",
+        "18000", "0.35", 30, 10, "petfood",
+    ),
+    (
+        "RC-MINI-10KG", "Royal Canin Mini Adulto 10kg", "Royal Canin", "alimentos", "bolsa",
+        "52000", "0.35", 14, 10, "petfood",
+    ),
     ("PROPLAN-AD-15KG", "Pro Plan Adulto 15kg", "Purina", "alimentos", "bolsa", "48000", "0.35", 20, 8, "sur"),
     ("WHISKAS-GATO-10KG", "Whiskas Pescado 10kg", "Whiskas", "alimentos", "bolsa", "32000", "0.35", 18, 8, "sur"),
     ("SNACK-HUESO-500G", "Huesitos snack 500g", "PetFun", "snacks", "unidad", "2500", "0.80", 40, 10, "petfun"),
     ("GALLETA-PERRO-1KG", "Galletitas huesito 1kg", "Animall", "snacks", "bolsa", "3000", "0.85", 35, 10, "petfun"),
-    ("SHAMPOO-PULGAS-500ML", "Shampoo antipulgas 500ml", "Osmac", "higiene", "unidad", "4000", "0.90", 22, 6, "higiene"),
+    (
+        "SHAMPOO-PULGAS-500ML", "Shampoo antipulgas 500ml", "Osmac", "higiene", "unidad",
+        "4000", "0.90", 22, 6, "higiene",
+    ),
     ("PIEDRA-GATO-4KG", "Piedras sanitarias 4kg", "Absorsol", "higiene", "bolsa", "3500", "0.90", 25, 10, "higiene"),
     ("TOALLITAS-50U", "Toallitas humedas x50", "PetCare", "higiene", "caja", "2000", "0.90", 30, 10, "higiene"),
     ("PELOTA-01", "Pelota resistente", "PetFun", "juguetes", "unidad", "1500", "0.95", 50, 10, "petfun"),
@@ -142,7 +151,11 @@ VENTAS_ANTES_DEL_PEDIDO = (
     (4, "duena", 2, (("CUCHA-XL", 1), ("PLATO-ACERO", 1)), TARJETA),
     (3, "mostrador", None, (("VIT-60C", 2), ("ANTIPAR-10KG", 1)), EFECTIVO),
     (3, "mostrador", 3, (("RC-MINI-10KG", 3), ("COLLAR-NYLON-M", 1)), TRANSFERENCIA),
-    (2, "mostrador", None, (("WHISKAS-GATO-10KG", 1), ("PIEDRA-GATO-4KG", 2), ("TOALLITAS-50U", 3)), (("efectivo", 50), ("transferencia", 50))),
+    (
+        2, "mostrador", None,
+        (("WHISKAS-GATO-10KG", 1), ("PIEDRA-GATO-4KG", 2), ("TOALLITAS-50U", 3)),
+        (("efectivo", 50), ("transferencia", 50)),
+    ),
     (2, "duena", 4, (("TRANSP-M", 1), ("RATON-CATNIP", 2)), TARJETA),
     (1, "mostrador", 0, (("SHAMPOO-PULGAS-500ML", 1), ("TOALLITAS-50U", 2)), EFECTIVO),
     (1, "mostrador", None, (("VIT-60C", 2), ("CUCHA-XL", 1)), EFECTIVO),

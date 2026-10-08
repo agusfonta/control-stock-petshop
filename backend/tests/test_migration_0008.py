@@ -104,14 +104,13 @@ def _checks(url: str, tabla: str) -> set[str]:
         engine.dispose()
 
 
-def test_0008_es_hija_de_0007_y_cabeza() -> None:
+def test_0008_es_hija_de_0007() -> None:
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(cfg)
-    assert script.get_heads() == ["0008"]
     assert script.get_revision("0008").down_revision == "0007"
 
 

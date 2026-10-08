@@ -23,7 +23,6 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     func,
-    text,
 )
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import column_property, relationship
@@ -46,7 +45,6 @@ __all__ = [
     "Venta",
     "LineaVenta",
     "PagoVenta",
-    "EventoOutbox",
 ]
 
 ROL_USUARIO = ("duena", "mostrador")
@@ -627,35 +625,3 @@ def _bloquear_update_pago_venta(mapper, connection, target) -> None:
 def _bloquear_delete_pago_venta(mapper, connection, target) -> None:
     """Reject any DELETE: los pagos de venta son insert-only (C-10 D2)."""
     raise InvalidRequestError("pago_venta es append-only: delete bloqueado")
-
-
-class EventoOutbox(Base):
-    """Bandeja de eventos transaccional (C-10 D11).
-
-    Una fila por (tipo, agregado_id): `venta.confirmada` / `venta.anulada`
-    con el id de la venta. Se inserta en la MISMA transaccion que la
-    transicion (services/outbox.py), asi vive o muere con ella. Quedan
-    pendientes (`procesado_at` nulo) hasta que un consumidor (C-11) los
-    marque; el indice parcial acelera esa consulta de pendientes.
-    """
-
-    __tablename__ = "evento_outbox"
-    __table_args__ = (
-        UniqueConstraint(
-            "tipo", "agregado_id", name="uq_evento_outbox_tipo_agregado"
-        ),
-        Index(
-            "ix_evento_outbox_pendientes",
-            "created_at",
-            postgresql_where=text("procesado_at IS NULL"),
-            sqlite_where=text("procesado_at IS NULL"),
-        ),
-    )
-
-    id = Column(String(36), primary_key=True, default=_uuid)
-    tipo = Column(String(50), nullable=False)
-    agregado_id = Column(String(36), nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    procesado_at = Column(DateTime(timezone=True), nullable=True)

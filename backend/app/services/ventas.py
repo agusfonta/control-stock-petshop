@@ -3,8 +3,7 @@
 Logica de negocio fuera del router: el servicio levanta errores de dominio
 que el router mapea a HTTP (como compras). El stock solo se muta via
 services.stock.aplicar_movimiento (C-05 D1, sin modificarlo); confirmar y
-anular son duenos de UNA transaccion para sus N movimientos (D6). Los
-eventos de facturacion van por el outbox en esa misma transaccion (D11).
+anular son duenos de UNA transaccion para sus N movimientos (D6).
 """
 
 from collections import Counter
@@ -25,7 +24,6 @@ from app.schemas import (
     VentaCreate,
     VentaFiltros,
 )
-from app.services.outbox import registrar_evento
 from app.services.stock import StockNegativo, aplicar_movimiento
 
 __all__ = [
@@ -301,9 +299,8 @@ def confirmar_venta(
     confirmada con rowcount (barrera contra doble confirmacion, tambien en
     SQLite); 3) lockea los productos ordenados y calcula faltantes de TODAS
     las lineas; 4) aplicar_movimiento(-cantidad, "venta", ref_id=venta) por
-    linea en orden de producto_id; 5) pagos + evento venta.confirmada;
-    6) UN commit. Ante cualquier error rollback total (deshace tambien el
-    CAS) y re-raise. Repetir la confirmacion es replay (D9): 200 sin
+    linea en orden de producto_id; 5) pagos; 6) UN commit. Ante cualquier
+    error rollback total (deshace tambien el CAS) y re-raise. Repetir la confirmacion es replay (D9): 200 sin
     efectos si los pagos coinciden, 409 si difieren o la venta esta anulada.
     """
     venta = _cargar_venta(db, venta_id, usuario)
@@ -348,7 +345,6 @@ def confirmar_venta(
                     ref_mp=pago.ref_mp,
                 )
             )
-        registrar_evento(db, "venta.confirmada", venta_id)
         db.commit()
     except StockNegativo:
         db.rollback()
@@ -412,9 +408,8 @@ def anular_venta(
     rowcount; lockea los productos ordenados y, por linea, aplica un
     movimiento tipo `venta` de cantidad POSITIVA con ref_id a la venta y un
     motivo que identifica la anulacion (los movimientos originales y los
-    pagos no se tocan: sin devolucion de dinero); registra el evento
-    venta.anulada y hace UN commit. Ante cualquier error rollback total y
-    re-raise. Anular una anulada es replay (200, sin efectos y sin comparar
+    pagos no se tocan: sin devolucion de dinero) y hace UN commit. Ante
+    cualquier error rollback total y re-raise. Anular una anulada es replay (200, sin efectos y sin comparar
     motivo, D9); anular un borrador es EstadoInvalido (409). Los productos
     dados de baja no impiden anular.
     """
@@ -447,7 +442,6 @@ def anular_venta(
                 motivo=f"anulacion venta {venta_id}: {data.motivo}",
                 ref_id=venta_id,
             )
-        registrar_evento(db, "venta.anulada", venta_id)
         db.commit()
     except Exception:
         db.rollback()

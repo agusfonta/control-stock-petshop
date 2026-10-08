@@ -4,10 +4,6 @@ Creates the initial owner user via get-or-create on the natural key
 (OWNER_EMAIL). The owner password comes ONLY from the SEED_OWNER_PASSWORD
 environment variable — it is never hardcoded and there is no default.
 
-Base categories and payment methods are versioned constants (no dedicated
-tables in migration 0002, no preloaded catalog). Auth/hashing policy
-belongs to C-03; here bcrypt is used directly for the dev seed only.
-
 Usage:
     SEED_OWNER_PASSWORD=... python -m scripts.seed   (from backend/)
 """
@@ -15,18 +11,10 @@ Usage:
 import os
 import sys
 
-import bcrypt
+from app.core.security import hash_password
 
 OWNER_EMAIL = "duena@petshop.local"
 OWNER_ROLE = "duena"
-
-ROLES = ("duena", "mostrador")
-CATEGORIAS_BASE = ("alimentos", "accesorios", "higiene", "farmacia")
-METODOS_PAGO_BASE = ("efectivo", "transferencia", "mercadopago", "tarjeta")
-
-
-def _hash_password(raw: str) -> str:
-    return bcrypt.hashpw(raw.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def run_seed(session_factory=None, owner_password: str | None = None) -> dict:
@@ -51,7 +39,7 @@ def run_seed(session_factory=None, owner_password: str | None = None) -> dict:
             session.add(
                 Usuario(
                     email=OWNER_EMAIL,
-                    password_hash=_hash_password(owner_password),
+                    password_hash=hash_password(owner_password),
                     rol=OWNER_ROLE,
                 )
             )
@@ -60,8 +48,6 @@ def run_seed(session_factory=None, owner_password: str | None = None) -> dict:
     return {
         "owner_email": OWNER_EMAIL,
         "owner_created": created,
-        "categorias": list(CATEGORIAS_BASE),
-        "metodos_pago": list(METODOS_PAGO_BASE),
     }
 
 
@@ -69,9 +55,7 @@ def main() -> None:
     summary = run_seed()
     print(
         f"seed ok: owner={summary['owner_email']} "
-        f"(created={summary['owner_created']}) "
-        f"categorias={len(summary['categorias'])} "
-        f"metodos_pago={len(summary['metodos_pago'])}"
+        f"(created={summary['owner_created']})"
     )
 
 

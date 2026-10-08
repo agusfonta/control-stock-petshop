@@ -34,7 +34,7 @@ from app.schemas import (
     VentasDiaQuery,
     VentasDiaResponse,
 )
-from app.workers.stock_alerts import ids_bajo_minimo
+from app.services.stock import ids_bajo_minimo
 
 __all__ = [
     "MAX_DIAS_PERIODO",

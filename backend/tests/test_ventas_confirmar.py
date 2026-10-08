@@ -2,7 +2,7 @@
 
 POST /api/ventas/{id}/confirmar descuenta stock de TODAS las lineas con un
 movimiento `venta` por linea (ref_id a la venta), valida pagos contra el
-total (RN-VT-04), registra los pagos y el evento `venta.confirmada` y marca
+total (RN-VT-04), registra los pagos y marca
 la venta confirmada: todo o nada (RN-VT-01/02). En RED fallan: el endpoint
 confirmar no existe (404/405).
 """
@@ -49,23 +49,13 @@ def _pagos_de(db_session_factory, venta_id: str) -> list:
         return session.query(PagoVenta).filter_by(venta_id=venta_id).all()
 
 
-def _eventos_de(db_session_factory, venta_id: str) -> list:
-    from app.models import EventoOutbox
-
-    with db_session_factory() as session:
-        return (
-            session.query(EventoOutbox).filter_by(agregado_id=venta_id).all()
-        )
-
-
 async def _nada_cambio(client, duena, db_session_factory, a, b, venta_id) -> None:
-    """Stock, movimientos, pagos y evento intactos; la venta sigue borrador."""
+    """Stock, movimientos y pagos intactos; la venta sigue borrador."""
     assert (await get_producto(client, duena, a))["stock_actual"] == 5
     assert (await get_producto(client, duena, b))["stock_actual"] == 1
     assert movimientos_de(db_session_factory, a) == []
     assert movimientos_de(db_session_factory, b) == []
     assert _pagos_de(db_session_factory, venta_id) == []
-    assert _eventos_de(db_session_factory, venta_id) == []
     venta = await get_venta(client, duena, venta_id)
     assert venta["estado"] == "borrador"
     assert venta["confirmada_at"] is None
@@ -99,7 +89,7 @@ async def test_confirmar_descuenta_stock_y_crea_un_movimiento_venta_por_linea(
     assert mov_b.ref_id == venta["id"]
 
 
-async def test_confirmar_registra_pago_auditoria_y_evento_pendiente(
+async def test_confirmar_registra_pago_auditoria(
     client, db_session_factory
 ) -> None:
     duena = await login_duena(client)
@@ -115,9 +105,6 @@ async def test_confirmar_registra_pago_auditoria_y_evento_pendiente(
     ]
     (pago_db,) = _pagos_de(db_session_factory, venta["id"])
     assert (pago_db.metodo, float(pago_db.monto)) == ("efectivo", 3800.0)
-    (evento,) = _eventos_de(db_session_factory, venta["id"])
-    assert evento.tipo == "venta.confirmada"
-    assert evento.procesado_at is None
     # La venta queda legible con el mismo estado.
     assert (await get_venta(client, duena, venta["id"]))["estado"] == "confirmada"
 
@@ -242,7 +229,6 @@ async def test_ref_mp_ya_registrado_409_con_rollback_total_de_la_segunda_venta(
     assert (await get_producto(client, duena, a))["stock_actual"] == 4
     assert len(movimientos_de(db_session_factory, a)) == 1
     assert _pagos_de(db_session_factory, segunda["id"]) == []
-    assert _eventos_de(db_session_factory, segunda["id"]) == []
     assert (await get_venta(client, duena, segunda["id"]))["estado"] == "borrador"
 
 
@@ -265,7 +251,6 @@ async def test_stock_consumido_entre_borrador_y_confirmacion_409(
     }
     assert (await get_producto(client, duena, p))["stock_actual"] == 1
     assert _pagos_de(db_session_factory, primero["id"]) == []
-    assert _eventos_de(db_session_factory, primero["id"]) == []
     borrador = await get_venta(client, duena, primero["id"])
     assert borrador["estado"] == "borrador"
     assert len(movimientos_de(db_session_factory, p)) == 1  # solo la otra venta
@@ -328,7 +313,7 @@ async def test_confirmar_sin_autenticacion_401(client, db_session_factory) -> No
 async def test_contadores_globales_tras_confirmar_dos_ventas(
     client, db_session_factory
 ) -> None:
-    from app.models import EventoOutbox, MovimientoStock, PagoVenta
+    from app.models import MovimientoStock, PagoVenta
 
     duena = await login_duena(client)
     a, b = await _a_y_b(client, duena)
@@ -338,7 +323,6 @@ async def test_contadores_globales_tras_confirmar_dos_ventas(
     await confirmar_venta(client, duena, v2["id"], [pago("efectivo", 1000), pago("tarjeta", 1300)])
     assert contar(db_session_factory, MovimientoStock) == 3
     assert contar(db_session_factory, PagoVenta) == 3
-    assert contar(db_session_factory, EventoOutbox) == 2
 
 
 # --- Triangulacion (task 6.3) ---
@@ -369,7 +353,7 @@ async def test_fallo_en_segunda_linea_revierte_todo(
     assert len(llamadas) == 2
     monkeypatch.undo()
 
-    # ...pero nada persiste: stock, movimientos, pagos, evento ni estado.
+    # ...pero nada persiste: stock, movimientos, pagos ni estado.
     await _nada_cambio(client, duena, db_session_factory, a, b, venta["id"])
     # La venta sigue siendo confirmable despues del fallo.
     assert (
@@ -391,7 +375,6 @@ async def test_ultima_unidad_secuencial_una_confirma_y_la_otra_409(
     assert (await get_producto(client, duena, p))["stock_actual"] == 0
     assert len(movimientos_de(db_session_factory, p)) == 1
     assert _pagos_de(db_session_factory, de_mostrador["id"]) == []
-    assert _eventos_de(db_session_factory, de_mostrador["id"]) == []
     assert (await get_venta(client, duena, de_mostrador["id"]))["estado"] == "borrador"
 
 

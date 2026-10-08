@@ -188,21 +188,6 @@ class ProductoResponse(BaseModel):
         return float(v)
 
 
-class ListaPrecioCreate(BaseModel):
-    """Alta de costo por distribuidora (persistencia C-04, sin logica)."""
-
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    distribuidora_id: str = Field(min_length=1)
-    producto_id: str = Field(min_length=1)
-    costo: Decimal = Field(gt=0)
-
-    @field_validator("costo", mode="before")
-    @classmethod
-    def _dec(cls, v: object) -> object:
-        return _coerce_decimal(v)
-
-
 class MargenMinimoRequest(BaseModel):
     """PATCH /api/productos/{id}/margen-minimo (solo duena)."""
 
