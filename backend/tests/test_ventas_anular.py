@@ -3,8 +3,7 @@
 POST /api/ventas/{id}/anular (RN-VT-03, D3/D13): devuelve el stock de cada
 linea con un movimiento tipo `venta` de cantidad POSITIVA (ref_id a la
 venta, motivo de anulacion), sin tocar los movimientos originales ni los
-pagos, y registra el evento `venta.anulada`. En RED fallan: el endpoint
-anular no existe (404/405).
+pagos. En RED fallan: el endpoint anular no existe (404/405).
 """
 
 import pytest
@@ -25,18 +24,6 @@ from tests.ventas_helpers import (
     usuario_id,
     venta_confirmada,
 )
-
-
-def _eventos_de(db_session_factory, venta_id: str) -> list:
-    from app.models import EventoOutbox
-
-    with db_session_factory() as session:
-        return (
-            session.query(EventoOutbox)
-            .filter_by(agregado_id=venta_id)
-            .order_by(EventoOutbox.tipo)
-            .all()
-        )
 
 
 def _pagos_de(db_session_factory, venta_id: str) -> list:
@@ -83,7 +70,7 @@ async def test_duena_anula_y_devuelve_stock_con_movimiento_inverso(
     assert "cliente se arrepintio" in inverso.motivo
 
 
-async def test_anular_registra_auditoria_conserva_pagos_y_crea_evento(
+async def test_anular_registra_auditoria_conserva_pagos(
     client, db_session_factory
 ) -> None:
     duena = await login_duena(client)
@@ -96,10 +83,6 @@ async def test_anular_registra_auditoria_conserva_pagos_y_crea_evento(
     assert [(p["metodo"], p["monto"]) for p in body["pagos"]] == [("efectivo", 3000)]
     (pago_db,) = _pagos_de(db_session_factory, venta["id"])
     assert float(pago_db.monto) == 3000.0
-    tipos = [e.tipo for e in _eventos_de(db_session_factory, venta["id"])]
-    assert tipos == ["venta.anulada", "venta.confirmada"]
-    anulada = [e for e in _eventos_de(db_session_factory, venta["id"]) if e.tipo == "venta.anulada"]
-    assert anulada[0].procesado_at is None
 
 
 async def test_duena_anula_venta_de_un_mostrador(client) -> None:
@@ -123,7 +106,6 @@ async def test_mostrador_no_puede_anular_ni_su_propia_venta_403_sin_cambios(
     assert (await get_venta(client, duena, venta["id"]))["estado"] == "confirmada"
     assert (await get_producto(client, duena, a))["stock_actual"] == 3
     assert len(movimientos_de(db_session_factory, a)) == 1
-    assert [e.tipo for e in _eventos_de(db_session_factory, venta["id"])] == ["venta.confirmada"]
 
 
 @pytest.mark.parametrize("cuerpo", [{}, {"motivo": ""}, {"motivo": "   "}, {"motivo": None}])
@@ -155,8 +137,6 @@ async def test_anular_dos_veces_200_y_200_sin_segunda_devolucion(
     assert segunda.json()["anulada_at"] == primera.json()["anulada_at"]
     assert (await get_producto(client, duena, a))["stock_actual"] == 5
     assert len(movimientos_de(db_session_factory, a)) == 2
-    tipos = [e.tipo for e in _eventos_de(db_session_factory, venta["id"])]
-    assert tipos == ["venta.anulada", "venta.confirmada"]
 
 
 async def test_anular_venta_inexistente_404(client) -> None:
@@ -224,7 +204,7 @@ async def test_fallo_en_segunda_linea_de_la_anulacion_revierte_todo(
     assert len(llamadas) == 2
     monkeypatch.undo()
 
-    # Sigue confirmada, sin stock devuelto, sin evento de anulacion.
+    # Sigue confirmada, sin stock devuelto.
     estado = await get_venta(client, duena, venta["id"])
     assert estado["estado"] == "confirmada"
     assert estado["anulada_at"] is None and estado["motivo_anulacion"] is None
@@ -232,7 +212,6 @@ async def test_fallo_en_segunda_linea_de_la_anulacion_revierte_todo(
     assert (await get_producto(client, duena, b))["stock_actual"] == 2
     assert len(movimientos_de(db_session_factory, a)) == 1
     assert len(movimientos_de(db_session_factory, b)) == 1
-    assert [e.tipo for e in _eventos_de(db_session_factory, venta["id"])] == ["venta.confirmada"]
     # Y la anulacion sigue siendo posible despues del fallo.
     assert (await post_anular(client, duena, venta["id"])).status_code == 200
 

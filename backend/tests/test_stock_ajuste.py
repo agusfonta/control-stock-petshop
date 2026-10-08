@@ -7,7 +7,6 @@ el movimiento, payload malformado -> 422. En RED fallan: no existe
 ni el endpoint ni services/stock.py.
 """
 
-import pytest
 
 from tests.conftest import (
     DUENA_EMAIL,

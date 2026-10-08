@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models import Base, Usuario
-from scripts.seed import CATEGORIAS_BASE, METODOS_PAGO_BASE, run_seed
+from scripts.seed import run_seed
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -27,8 +27,6 @@ def test_seed_doble_ejecucion_no_duplica() -> None:
         assert session.query(Usuario).count() == 1
     assert first["owner_created"] is True
     assert second["owner_created"] is False
-    assert len(CATEGORIAS_BASE) == 4
-    assert len(METODOS_PAGO_BASE) == 4
 
 
 def test_seed_segunda_ejecucion_no_pisa_password() -> None:

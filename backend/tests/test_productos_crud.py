@@ -5,7 +5,6 @@ Autenticacion via login de seed_users (conftest). Escritura = duena,
 lectura = cualquier usuario activo.
 """
 
-from decimal import Decimal
 
 from tests.conftest import (
     DUENA_EMAIL,
@@ -215,7 +214,6 @@ async def test_listar_productos_sin_auth_401(client) -> None:
 async def test_listar_productos_filtra_inactivos(
     client, db_session_factory
 ) -> None:
-    from app.models import Producto
 
     headers = await _login(client, DUENA_EMAIL, DUENA_PASSWORD)
     created = await client.post(

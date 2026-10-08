@@ -1,7 +1,6 @@
 """Flags de la cookie de refresh (C-03 task 5.3)."""
 
 import httpx
-import pytest
 
 from tests.conftest import DUENA_EMAIL, DUENA_PASSWORD
 
@@ -30,7 +29,7 @@ async def test_cookie_secure_en_prod(
     from app.main import create_app
 
     prod_settings = Settings(
-        _env_file=None, env="prod", secret_key=PROD_SECRET
+        _env_file=None, env="prod", secret_key=PROD_SECRET, bcrypt_rounds=12
     )
     app = create_app()
 

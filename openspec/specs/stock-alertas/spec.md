@@ -86,9 +86,9 @@ The system SHALL garantizar que toda mutación de `stock_actual` ocurre junto a 
 - **WHEN** la creación del movimiento falla durante un ajuste
 - **THEN** `stock_actual` conserva su valor previo (rollback total, sin stock a medias)
 
-### Requirement: Job de bajo-mínimo y resumen de alertas
+### Requirement: Resumen de alertas de bajo-mínimo
 
-The system SHALL mantener un job Redis que recalcula el conjunto de productos bajo mínimo con TTL corto y exponer `GET /api/stock/alertas` (autenticado) con `{total_bajo_minimo, items}` para reposición; si Redis no está disponible, el endpoint cae de forma degradada al cómputo directo sin responder `500`.
+The system SHALL exponer `GET /api/stock/alertas` (autenticado) con `{total_bajo_minimo, items}` para reposición, calculado directamente desde la base (productos activos con `stock_actual <= stock_minimo`) en cada llamada, sin caché ni job intermedio y sin depender de Redis.
 
 #### Scenario: Resumen de alertas coincide con el filtro
 - **WHEN** hay 3 productos con `stock_actual <= stock_minimo` y se llama a `GET /api/stock/alertas`
@@ -100,7 +100,7 @@ The system SHALL mantener un job Redis que recalcula el conjunto de productos ba
 
 #### Scenario: Alertas sin Redis disponible
 - **WHEN** Redis está caído y se llama a `GET /api/stock/alertas`
-- **THEN** el sistema responde `200` con datos calculados directo de la base en lugar de `500`
+- **THEN** el sistema responde `200` con datos calculados directo de la base, porque el endpoint no usa Redis
 
 ### Requirement: Migración 0004 crea movimiento_stock
 
@@ -116,7 +116,7 @@ The system SHALL proveer la migración Alembic `0004` (hija de `0003`) que crea 
 
 ### Requirement: Validación estricta y secretos solo por env
 
-The system SHALL validar todo input/output de stock con schemas Pydantic estrictos (payloads malformados → `422` sin ejecutar lógica) y SHALL tomar la conexión Redis y TTLs de variables de entorno, sin hardcodear credenciales reales en repo ni tests.
+The system SHALL validar todo input/output de stock con schemas Pydantic estrictos (payloads malformados → `422` sin ejecutar lógica) y SHALL NOT hardcodear credenciales reales en repo ni tests.
 
 #### Scenario: Payload de ajuste malformado rechazado
 - **WHEN** se envía a `POST /api/productos/{id}/ajustar` un body sin `cantidad_delta` o con tipo inválido

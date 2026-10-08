@@ -50,14 +50,15 @@ def _tablas(url: str) -> set[str]:
         engine.dispose()
 
 
-def test_0007_es_hija_de_0006_y_cabeza() -> None:
+def test_0007_es_hija_de_0006_y_esta_en_la_cadena() -> None:
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(cfg)
-    assert script.get_heads() == ["0007"]
+    # C-14: la cabeza paso a 0008 (hija de 0007); su test vive en test_migration_0008.
+    assert script.get_revision("0007") is not None
     assert script.get_revision("0007").down_revision == "0006"
 
 
@@ -66,11 +67,12 @@ def test_0007_upgrade_downgrade_upgrade_sin_residuos(alembic_sqlite) -> None:
 
     cfg, url = alembic_sqlite
     assert not (VENTAS_TABLAS & _tablas(url))
-    command.upgrade(cfg, "head")
+    # C-14: se apunta a 0007 (no a head) para ejercitar solo esta migracion.
+    command.upgrade(cfg, "0007")
     assert VENTAS_TABLAS <= _tablas(url)
-    command.downgrade(cfg, "-1")
+    command.downgrade(cfg, "0006")
     assert not (VENTAS_TABLAS & _tablas(url))
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0007")
     assert VENTAS_TABLAS <= _tablas(url)
 
 
@@ -78,7 +80,7 @@ def test_0007_crea_indices_y_uniques(alembic_sqlite) -> None:
     from alembic import command
 
     cfg, url = alembic_sqlite
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0007")
     engine = create_engine(url)
     try:
         insp = inspect(engine)
@@ -125,7 +127,7 @@ def test_0007_base_rechaza_datos_invalidos(alembic_sqlite) -> None:
     from alembic import command
 
     cfg, url = alembic_sqlite
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0007")
     engine = create_engine(url)
     try:
         _rechaza(

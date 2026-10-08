@@ -12,7 +12,7 @@
 2. Leer los docs de la knowledge-base indicados en "Leer antes".
 3. Ejecutar `/opsx:propose <nombre-del-change>`.
 4. Al terminar el change, archivarlo con `/opsx:archive <nombre-del-change>`.
-5. Marcar el checkbox `[x]` en este archivo.
+5. Marcar el checkbox `[x]` en este archivo (formato: `` `[x]` completado (archivado AAAA-MM-DD)``; los no archivados llevan `` `[ ]` ``).
 
 ---
 
@@ -110,7 +110,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ## FASE 0 — Cimientos
 
 ### [C-01] `foundation-setup`
-- **Estado**: `[x]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-02)
 - **Scope**: Scaffolding completo + infraestructura base (Enfoque B, arranque limpio)
   - Estructura `backend/app/{routers,services,models.py,schemas.py,deps.py,core/}`, `frontend/src/{features,shared,pages/}`
   - `backend/`: FastAPI app mínima con `GET /api/health`, Alembic inicializado, `core/{config,security,db}`, `Dockerfile`
@@ -129,7 +129,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-02] `core-models`
-- **Estado**: `[x]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-02)
 - **Scope**: Modelos base + migraciones iniciales + seed mínimo
   - Modelos: `Usuario`, `Producto`, `Distribuidora`, `Cliente` (campos según ERD, uuid PK, sku unique, `precio_venta` calculado)
   - Mixins: `AuditMixin` (`activo`, `created_at`, `updated_at`), base repository genérico
@@ -149,7 +149,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ## FASE 1 — Autenticación y accesos
 
 ### [C-03] `auth-rbac`
-- **Estado**: `[x]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-02)
 - **Scope**: Autenticación JWT + RBAC dueña/mostrador
   - `POST /api/auth/login` — JWT access corto + refresh, rate limiting 5/60s por IP+email, bcrypt
   - `POST /api/auth/refresh` — rotación con blacklist en Redis
@@ -172,7 +172,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 > C-04 y C-09 pueden proponerse en paralelo. C-04 debe archivarse antes de C-05/C-06/C-08.
 
 ### [C-04] `catalogo-productos`
-- **Estado**: `[x]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-04)
 - **Scope**: Catálogo con precios calculados (US-005 parcial, US-008 parcial)
   - Modelos: `ListaPrecio` (distribuidora_id, producto_id, costo), campos `margen_pct`, `stock_minimo` en Producto
   - Endpoints: `CRUD /api/productos`, `GET /api/productos/buscar?q=` (sku exacto + nombre trgm, paginado), `PATCH /api/productos/{id}/margen-minimo` (solo dueña, RN-PR-02/RN-ST-02)
@@ -190,11 +190,11 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-05] `stock-alertas-ajustes`
-- **Estado**: `[x]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-04)
 - **Scope**: Stock en tiempo real con alertas y ajustes auditables (US-003, US-004)
   - Modelo `MovimientoStock` append-only (tipo venta/entrada/ajuste/apertura, stock_previo/nuevo, ref_id, usuario_id; sin update/delete)
   - Endpoints: `GET /api/stock?bajo_minimo=true&orden=rotacion` con badge `stock <= minimo` (RN-ST-01), `POST /api/productos/{id}/ajustar` con motivo obligatorio (solo dueña, RN-ST-03)
-  - Job Redis: marca bajo-mínimo + endpoint de alertas para reposición
+  - Endpoint de alertas para reposición (originalmente con job Redis; la caché/job se eliminó en la limpieza y `GET /api/stock/alertas` calcula directo desde la DB)
   - Migración 003: tabla movimiento_stock
   - Tests: alerta al llegar a mínimo, ajuste genera movimiento, prohibido editar stock sin movimiento
 - **Dependencias**: C-04
@@ -208,7 +208,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-06] `distribuidoras-listas`
-- **Estado**: `[x]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-04)
 - **Scope**: ABM distribuidoras + listas de precios por origen (US-005)
   - Modelos: `Distribuidora` (nombre, contacto, cuit, condiciones), `ListaPrecio` con costo por origen
   - Endpoints: `CRUD /api/distribuidoras`, `CRUD /api/distribuidoras/{id}/listas`, `GET /api/distribuidoras/comparar?producto_id=` (costos por distribuidora, precio sugerido recalculado RN-PR-01/RN-PR-03)
@@ -225,7 +225,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-07] `pedidos-entradas-pagos`
-- **Estado**: `[x]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-05)
 - **Scope**: Circuito de compras: pedidos, entradas y pagos a distribuidoras (US-006 + cuenta simple)
   - Modelos: `PedidoCompra` (estado pendiente/recibido/cancelado + líneas), `EntradaStock`, `PagoDistribuidora` (independiente de pedidos, RN-CP-03)
   - Endpoints: `POST /api/compras/pedidos`, `POST /api/compras/pedidos/{id}/recibir` → genera Entrada (suma stock + actualiza costo RN-CP-01, pedido no mueve stock RN-CP-02), `POST /api/compras/pagos`
@@ -243,7 +243,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-08] `migracion-excel`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-08)
 - **Scope**: Carga inicial desde Excel del local (Flujo 3)
   - Endpoint: `POST /api/migracion/productos` (solo dueña) — sube `plantilla_productos.csv`, valida duplicados (sku) y costos > 0
   - Lógica: crea productos con stock inicial + `MovimientoStock` tipo `apertura` por cada fila válida; reporte de errores por fila
@@ -264,7 +264,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 > C-09 puede ir en paralelo con C-04. C-10 requiere C-04 + C-05 + C-09 archivados.
 
 ### [C-09] `clientes-historial`
-- **Estado**: `[x]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-05)
 - **Scope**: Registro de clientes e historial básico (US-007)
   - Modelo `Cliente` (nombre, teléfono, email, dirección, saldo_cc reservado — sin cuenta corriente en v1 salvo decisión)
   - Endpoints: `CRUD /api/clientes`, `GET /api/clientes/buscar?q=`
@@ -282,7 +282,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-10] `ventas-mostrador`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-06)
 - **Scope**: Venta transaccional con bloqueo duro sin stock (US-001, núcleo del sistema)
   - Modelos: `Venta` (cliente nullable, total, estado borrador/confirmada/anulada), `LineaVenta` (cantidad>0), `PagoVenta` (efectivo/transferencia/mp/tarjeta, ref_MP)
   - Endpoints: `POST /api/ventas` (borrador + `idempotency_key`; valida `cliente_id` inexistente/inactivo), `POST /api/ventas/{id}/confirmar` (transacción: revalida stock, crea líneas+pagos, descuenta stock, crea movimientos, encola job FE), `POST /api/ventas/{id}/anular` (solo dueña, movimiento inverso RN-VT-03), `GET /api/clientes/{id}/ventas` (historial por cliente, movido desde C-09; agrega el requirement "Historial de ventas por cliente" a la capability `clientes`)
@@ -304,7 +304,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 - **Scope**: Facturación electrónica ARCA async con reintentos (US-002)
   - Modelo `ComprobanteFE` (venta_id, tipo ticket/FE A/B/C, cae, número, estado pendiente/emitido/error, payload, intentos)
   - Worker Redis (outbox): emite FE al confirmar venta, guarda CAE/número; si falla queda pendiente + alerta sin tumbar la venta
-  - Contrato del outbox de C-10: consumir los `evento_outbox` pendientes (`procesado_at IS NULL`, orden `created_at`, `FOR UPDATE SKIP LOCKED` en Postgres) de tipo `venta.confirmada` (emitir FE; `ComprobanteFE` con `venta_id` único) y `venta.anulada` (decidir nota de crédito) y marcar `procesado_at`; Redis solo como aviso opcional post-commit, la fuente de verdad es la tabla
+  - Outbox: el outbox provisorio de C-10 fue ELIMINADO en la limpieza (tabla `evento_outbox`, modelo, servicio y la migración 0009 que la dropea). C-11 debe crearlo con el contrato real de ARCA: tabla propia + `registrar_evento` invocado en confirmar/anular venta (eventos `venta.confirmada` → emitir FE, con `ComprobanteFE` de `venta_id` único, y `venta.anulada` → decidir nota de crédito), consumidos por el worker con `FOR UPDATE SKIP LOCKED` en Postgres; Redis solo como aviso opcional post-commit, la fuente de verdad es la tabla
   - Endpoints: `POST /api/ventas/{id}/facturar`, `GET /api/comprobantes?estado=pendiente`, `POST /api/comprobantes/{id}/reintentar`
   - Config: `ARCA_CERT/KEY`, punto de venta y CUIT por env (pendiente dato fiscal real)
   - Tests: emisión ok guarda CAE, error deja pendiente + reintento, venta confirmada aunque FE falle
@@ -340,10 +340,11 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 > C-11, C-12 y C-14 pueden ir en paralelo tras C-10. C-13 requiere C-10 + C-11 + C-12.
 
 ### [C-13] `pos-frontend`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-08)
 - **Scope**: SPA de mostrador rápida en tablet (<60s por venta, US-001 UI)
   - `features/pos`: buscador con debounce + soporte lector HID (código barras como teclado), carrito con validación de stock en memoria, registro de pagos (efectivo/transferencia/MP), ticket imprimible (térmica)
   - Páginas: `/pos` (mostrador), `/stock` (consulta rápida), `/clientes` (selector inline)
+  - Frontend: `features/reportes` + páginas `/reportes/*` (solo dueña ve completo, mostrador ve básico)
   - Estado: Zustand + React Query; JWT con refresh; RBAC en rutas (mostrador vs dueña)
   - Tests: flujo buscar→agregar→cobrar→ticket (Playwright o Vitest + MSW)
 - **Dependencias**: C-10, C-11, C-12
@@ -357,12 +358,11 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 ---
 
 ### [C-14] `reportes-basicos`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completado (archivado 2026-10-08)
 - **Scope**: Reportes para decidir compras (US-009)
   - Endpoints: `GET /api/reportes/ventas-dia`, `/mas-vendidos`, `/reposicion` (bajo mínimo + rotación), `/margenes`
-  - Jobs Redis para agregados pesados; cache TTL corto
-  - Frontend: `features/reportes` + páginas `/reportes/*` (solo dueña ve completo, mostrador ve básico)
-  - Tests: agregados correctos, aislamiento por fecha, cache invalidation tras venta
+  - Sin Redis/cache: agregados SQL al vuelo (D2)
+  - Tests: agregados correctos, aislamiento por fecha, reflejo inmediato tras venta/anulación
 - **Dependencias**: C-10, C-05
 - **Governance**: BAJO
 - **Leer antes**:

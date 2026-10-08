@@ -3,7 +3,6 @@
 Clave efimera `test-only-*` por test: ninguna credencial real en el repo.
 """
 
-import time
 
 import pytest
 

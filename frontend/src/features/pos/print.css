@@ -1,0 +1,34 @@
+/* Impresion del comprobante (D11): solo #print-root, 80 mm centrado (sirve en termica y en A4). */
+#print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 4mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  body > *:not(#print-root) {
+    display: none !important;
+  }
+
+  #print-root {
+    display: block !important;
+    width: 80mm;
+    max-width: 100%;
+    margin: 0 auto;
+    color: #000;
+  }
+
+  #print-root .comprobante {
+    max-width: none;
+    background: #fff;
+    color: #000;
+    font-size: 12px;
+  }
+}

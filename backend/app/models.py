@@ -23,7 +23,6 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     func,
-    text,
 )
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import column_property, relationship
@@ -46,7 +45,6 @@ __all__ = [
     "Venta",
     "LineaVenta",
     "PagoVenta",
-    "EventoOutbox",
 ]
 
 ROL_USUARIO = ("duena", "mostrador")
@@ -467,6 +465,8 @@ class Venta(Base, AuditMixin):
         Index("ix_venta_cliente_id_created_at", "cliente_id", "created_at"),
         Index("ix_venta_usuario_id_created_at", "usuario_id", "created_at"),
         Index("ix_venta_created_at", "created_at"),
+        # C-14 D11: todos los reportes filtran estado + rango de confirmada_at.
+        Index("ix_venta_estado_confirmada_at", "estado", "confirmada_at"),
     )
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -532,6 +532,10 @@ class LineaVenta(Base):
             "precio_unit > 0", name="ck_linea_venta_precio_unit_positivo"
         ),
         CheckConstraint("subtotal > 0", name="ck_linea_venta_subtotal_positivo"),
+        CheckConstraint(
+            "costo_unit IS NULL OR costo_unit > 0",
+            name="ck_linea_venta_costo_unit_positivo",
+        ),
         UniqueConstraint(
             "venta_id", "producto_id", name="uq_linea_venta_venta_producto"
         ),
@@ -552,6 +556,11 @@ class LineaVenta(Base):
     cantidad = Column(Integer, nullable=False)
     precio_unit = Column(Numeric(10, 2), nullable=False)
     subtotal = Column(Numeric(12, 2), nullable=False)
+    # Costo del producto congelado junto con precio_unit al crear el borrador
+    # (C-14 D1) para el margen historico. NULL en lineas previas a la 0008:
+    # sin backfill, los reportes las informan aparte. Nunca sale por la API
+    # de ventas.
+    costo_unit = Column(Numeric(10, 2), nullable=True)
 
     venta = relationship("Venta", back_populates="lineas")
     producto = relationship("Producto")
@@ -616,35 +625,3 @@ def _bloquear_update_pago_venta(mapper, connection, target) -> None:
 def _bloquear_delete_pago_venta(mapper, connection, target) -> None:
     """Reject any DELETE: los pagos de venta son insert-only (C-10 D2)."""
     raise InvalidRequestError("pago_venta es append-only: delete bloqueado")
-
-
-class EventoOutbox(Base):
-    """Bandeja de eventos transaccional (C-10 D11).
-
-    Una fila por (tipo, agregado_id): `venta.confirmada` / `venta.anulada`
-    con el id de la venta. Se inserta en la MISMA transaccion que la
-    transicion (services/outbox.py), asi vive o muere con ella. Quedan
-    pendientes (`procesado_at` nulo) hasta que un consumidor (C-11) los
-    marque; el indice parcial acelera esa consulta de pendientes.
-    """
-
-    __tablename__ = "evento_outbox"
-    __table_args__ = (
-        UniqueConstraint(
-            "tipo", "agregado_id", name="uq_evento_outbox_tipo_agregado"
-        ),
-        Index(
-            "ix_evento_outbox_pendientes",
-            "created_at",
-            postgresql_where=text("procesado_at IS NULL"),
-            sqlite_where=text("procesado_at IS NULL"),
-        ),
-    )
-
-    id = Column(String(36), primary_key=True, default=_uuid)
-    tipo = Column(String(50), nullable=False)
-    agregado_id = Column(String(36), nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    procesado_at = Column(DateTime(timezone=True), nullable=True)

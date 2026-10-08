@@ -3,9 +3,9 @@
 Cubre spec "Migracion 0007 crea las tablas de ventas": checks
 (cantidad > 0, precio_unit > 0, subtotal > 0, monto > 0, total > 0),
 un producto por venta, una clave de idempotencia por vendedor, un ref_mp
-por pago, ref_mp solo en pagos mp, fechas segun el estado, un evento por
-venta y tipo, y lineas/pagos inmutables. En RED fallan: Venta/LineaVenta/
-PagoVenta/EventoOutbox no existen en app.models.
+por pago, ref_mp solo en pagos mp, fechas segun el estado y lineas/pagos
+inmutables. En RED fallan: Venta/LineaVenta/PagoVenta no existen en
+app.models.
 """
 
 import uuid
@@ -221,6 +221,9 @@ def test_idempotency_key_igual_en_usuarios_distintos_permitida(
         ("precio_unit", -5),
         ("subtotal", 0),
         ("subtotal", -5),
+        # C-14 D1: el costo congelado es NULL o positivo (nunca 0 ni negativo).
+        ("costo_unit", 0),
+        ("costo_unit", -5),
     ],
 )
 def test_linea_valores_no_positivos_rechazados(
@@ -410,48 +413,6 @@ def test_pago_delete_bloqueado(db_session_factory, seed_users) -> None:
             session.commit()
         session.rollback()
         assert session.get(PagoVenta, pago_id) is not None
-
-
-# --- EventoOutbox ---
-
-
-def test_evento_outbox_pendiente_por_defecto(db_session_factory, seed_users) -> None:
-    from app.models import EventoOutbox
-
-    with db_session_factory() as session:
-        evento = EventoOutbox(tipo="venta.confirmada", agregado_id="v-1")
-        session.add(evento)
-        session.commit()
-        session.refresh(evento)
-        assert evento.id
-        assert evento.procesado_at is None
-        assert evento.created_at is not None
-
-
-def test_evento_outbox_duplicado_tipo_agregado_rechazado(
-    db_session_factory, seed_users
-) -> None:
-    from app.models import EventoOutbox
-
-    with db_session_factory() as session:
-        session.add(EventoOutbox(tipo="venta.confirmada", agregado_id="v-1"))
-        session.commit()
-        session.add(EventoOutbox(tipo="venta.confirmada", agregado_id="v-1"))
-        with pytest.raises(IntegrityError):
-            session.commit()
-        session.rollback()
-
-
-def test_evento_outbox_mismo_agregado_con_otro_tipo_permitido(
-    db_session_factory, seed_users
-) -> None:
-    from app.models import EventoOutbox
-
-    with db_session_factory() as session:
-        session.add(EventoOutbox(tipo="venta.confirmada", agregado_id="v-1"))
-        session.add(EventoOutbox(tipo="venta.anulada", agregado_id="v-1"))
-        session.commit()
-        assert session.query(EventoOutbox).count() == 2
 
 
 def test_tipo_movimiento_no_cambia_con_ventas() -> None:

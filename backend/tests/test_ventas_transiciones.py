@@ -32,13 +32,6 @@ def _pagos_de(db_session_factory, venta_id: str) -> list:
         return session.query(PagoVenta).filter_by(venta_id=venta_id).all()
 
 
-def _eventos_de(db_session_factory, venta_id: str) -> list:
-    from app.models import EventoOutbox
-
-    with db_session_factory() as session:
-        return session.query(EventoOutbox).filter_by(agregado_id=venta_id).all()
-
-
 async def _venta_a(client, duena, headers=None, stock=5):
     """Producto A (1500, stock `stock`) y borrador de 2 unidades (total 3000)."""
     a = await crear_producto(client, duena, sku="TR-A", costo=1000, margen_pct=0.5, stock_actual=stock)
@@ -57,16 +50,14 @@ async def test_confirmar_dos_veces_con_los_mismos_pagos_200_y_200_sin_efectos(
     stock = (await get_producto(client, duena, a))["stock_actual"]
     movimientos = len(movimientos_de(db_session_factory, a))
     pagos_db = len(_pagos_de(db_session_factory, venta["id"]))
-    eventos = len(_eventos_de(db_session_factory, venta["id"]))
     segunda = await post_confirmar(client, duena, venta["id"], pagos)
     assert (primera.status_code, segunda.status_code) == (200, 200)
     assert segunda.json()["estado"] == "confirmada"
     assert segunda.json()["confirmada_at"] == primera.json()["confirmada_at"]
-    assert (stock, movimientos, pagos_db, eventos) == (3, 1, 2, 1)
+    assert (stock, movimientos, pagos_db) == (3, 1, 2)
     assert (await get_producto(client, duena, a))["stock_actual"] == stock
     assert len(movimientos_de(db_session_factory, a)) == movimientos
     assert len(_pagos_de(db_session_factory, venta["id"])) == pagos_db
-    assert len(_eventos_de(db_session_factory, venta["id"])) == eventos
     assert sorted(p["id"] for p in segunda.json()["pagos"]) == sorted(
         p["id"] for p in primera.json()["pagos"]
     )
@@ -100,7 +91,6 @@ async def test_reconfirmar_con_pagos_distintos_409_conservando_los_originales(
     assert (original.metodo, float(original.monto)) == ("efectivo", 3000.0)
     assert (await get_producto(client, duena, a))["stock_actual"] == 3
     assert len(movimientos_de(db_session_factory, a)) == 1
-    assert len(_eventos_de(db_session_factory, venta["id"])) == 1
 
 
 async def test_replay_conserva_al_usuario_que_confirmo_primero(client) -> None:
@@ -145,24 +135,9 @@ async def test_anular_un_borrador_409_y_sigue_en_borrador(client, db_session_fac
     assert (await get_venta(client, duena, venta["id"]))["estado"] == "borrador"
     assert (await get_producto(client, duena, a))["stock_actual"] == 5
     assert movimientos_de(db_session_factory, a) == []
-    assert _eventos_de(db_session_factory, venta["id"]) == []
 
 
-async def test_confirmar_sin_efectos_en_el_listado_de_eventos_tras_replays(
-    client, db_session_factory
-) -> None:
-    """Tres confirmaciones iguales dejan exactamente un evento venta.confirmada."""
-    duena = await login_duena(client)
-    _, venta = await _venta_a(client, duena)
-    for _ in range(3):
-        assert (
-            await post_confirmar(client, duena, venta["id"], [pago("efectivo", 3000)])
-        ).status_code == 200
-    (evento,) = _eventos_de(db_session_factory, venta["id"])
-    assert evento.tipo == "venta.confirmada"
-
-
-async def test_confirmar_dos_veces_y_anular_dos_veces_deja_un_evento_de_cada_tipo(
+async def test_confirmar_dos_veces_y_anular_dos_veces_aplica_un_solo_movimiento_de_cada_signo(
     client, db_session_factory
 ) -> None:
     duena = await login_duena(client)
@@ -173,7 +148,5 @@ async def test_confirmar_dos_veces_y_anular_dos_veces_deja_un_evento_de_cada_tip
         ).status_code == 200
     for _ in range(2):
         assert (await post_anular(client, duena, venta["id"])).status_code == 200
-    tipos = sorted(e.tipo for e in _eventos_de(db_session_factory, venta["id"]))
-    assert tipos == ["venta.anulada", "venta.confirmada"]
     assert (await get_producto(client, duena, a))["stock_actual"] == 5
     assert [m.cantidad for m in movimientos_de(db_session_factory, a)] == [-2, 2]

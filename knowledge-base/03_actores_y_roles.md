@@ -6,7 +6,7 @@
 |---|---|---|
 | Dueña/admin | Administra catálogo, precios, mínimos, distribuidoras y ve reportes | SPA completa, tablet/PC |
 | Mostrador/vendedor | Atiende ventas, registra entradas, consulta stock | SPA mostrador, tablet, flujo rápido |
-| Sistema/jobs | Emite FE, dispara alertas, genera reportes | Workers Redis, sin UI |
+| Sistema/jobs | Emite FE (futuro, C-11), calcula alertas y reportes | Sin UI; hoy no hay workers |
 
 ## RBAC — Matriz de permisos
 

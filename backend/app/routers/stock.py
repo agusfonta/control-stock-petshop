@@ -3,21 +3,20 @@
 GET /api/stock: productos activos con bajo_minimo derivado
 (stock_actual <= stock_minimo, decision D3), filtro bajo_minimo=true
 y orden=rotacion (cobertura ascendente, decision D4). Requiere auth.
-GET /api/stock/alertas: resumen de reposicion con fallback a DB
-si Redis cae (llega en task 4.2).
+GET /api/stock/alertas: resumen de reposicion (productos activos bajo
+minimo), calculado directo desde la base.
 """
 
 import math
 from typing import Literal
 
-import redis as redis_lib
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app import deps
 from app.models import Producto
 from app.schemas import AlertasResponse, StockItem, StockListResponse
-from app.workers.stock_alerts import ids_bajo_minimo
+from app.services.stock import ids_bajo_minimo
 
 router = APIRouter(prefix="/stock", tags=["stock"])
 
@@ -83,25 +82,10 @@ def listar_stock(
 def resumen_alertas(
     db: Session = Depends(deps.get_db),
     current: deps.Usuario = Depends(deps.get_current_user),
-    cache: redis_lib.Redis = Depends(deps.get_redis),
 ) -> AlertasResponse:
-    """Resumen de reposicion: total bajo minimo + items (Flujo 2).
-
-    Lee el SET del job si esta disponible; ante Redis caido o SET
-    vacio/ausente degrada a computo directo sin responder 500. Los ids
-    del cache se recargan desde la base y se re-filtran (stale-guard:
-    un producto repuesto entre jobs no aparece como alerta).
-    """
+    """Resumen de reposicion: total bajo minimo + items (Flujo 2)."""
     _ = current
-    ids: list[str] | None = None
-    try:
-        cached = cache.smembers("stock:bajo_minimo")
-        if cached:
-            ids = [str(i) for i in cached]
-    except redis_lib.exceptions.RedisError:
-        ids = None
-    if ids is None:
-        ids = ids_bajo_minimo(db)
+    ids = ids_bajo_minimo(db)
     if ids:
         candidatos = (
             db.query(Producto)

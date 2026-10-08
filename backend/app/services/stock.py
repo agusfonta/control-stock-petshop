@@ -19,6 +19,7 @@ __all__ = [
     "StockNegativo",
     "aplicar_movimiento",
     "ajustar",
+    "ids_bajo_minimo",
 ]
 
 
@@ -122,3 +123,16 @@ def ajustar(
     db.refresh(producto)
     db.refresh(movimiento)
     return producto, movimiento
+
+
+def ids_bajo_minimo(db: Session) -> list[str]:
+    """Ids de productos activos con stock_actual <= stock_minimo."""
+    rows = (
+        db.query(Producto.id)
+        .filter(
+            Producto.activo.is_(True),
+            Producto.stock_actual <= Producto.stock_minimo,
+        )
+        .all()
+    )
+    return [row[0] for row in rows]

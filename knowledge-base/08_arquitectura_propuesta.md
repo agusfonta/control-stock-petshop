@@ -6,7 +6,7 @@
 |---|---|---|
 | Monolito modular | FastAPI routers por dominio | Equipo chico, costo bajo, despliegue simple |
 | Transacción unitaria | Confirmar venta | Consistencia stock+pagos (RN-VT-02) |
-| Outbox/jobs Redis | FE ARCA, alertas, reportes | No bloquear mostrador, reintentos |
+| Outbox/jobs Redis (futuro, C-11) | FE ARCA | No bloquear mostrador, reintentos. Hoy NO existe: el outbox de C-10 se eliminó (migración 0009) y C-11 lo crea con el contrato real de ARCA. Alertas de stock y reportes se calculan directo desde la DB |
 | RBAC simple | JWT + roles | 2 roles, sin ABAC |
 
 ## Estructura de directorios

@@ -167,7 +167,7 @@ def confirmar_venta(
     db: Session = Depends(deps.get_db),
     current: deps.Usuario = Depends(deps.require_role("duena", "mostrador")),
 ) -> VentaResponse:
-    """Confirma el borrador: stock + movimientos + pagos + evento, todo o nada."""
+    """Confirma el borrador: stock + movimientos + pagos, todo o nada."""
     try:
         venta = svc.confirmar_venta(db, venta_id, data, current)
     except svc.VentasError as exc:

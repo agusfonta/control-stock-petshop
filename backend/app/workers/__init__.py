@@ -1,1 +1,0 @@
-"""Workers package: jobs periodicos (stock, reportes, FE)."""

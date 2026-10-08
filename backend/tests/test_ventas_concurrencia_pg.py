@@ -99,16 +99,13 @@ def _confirmar(venta_id: str, pagos: list[dict]):
 
 
 def _estado(sessions, pid: str, venta_ids: list[str]):
-    from app.models import EventoOutbox, MovimientoStock, PagoVenta, Producto, Venta
+    from app.models import MovimientoStock, PagoVenta, Producto, Venta
 
     with sessions() as session:
         return {
             "stock": session.get(Producto, pid).stock_actual,
             "movimientos": session.query(MovimientoStock)
             .filter_by(producto_id=pid)
-            .count(),
-            "eventos": session.query(EventoOutbox)
-            .filter(EventoOutbox.agregado_id.in_(venta_ids))
             .count(),
             "pagos": session.query(PagoVenta)
             .filter(PagoVenta.venta_id.in_(venta_ids))
@@ -144,7 +141,6 @@ def test_dos_confirmaciones_por_la_ultima_unidad_una_gana_y_la_otra_409(
     estado = _estado(pg_sessions, pid, [v1, v2])
     assert estado["stock"] == 0
     assert estado["movimientos"] == 1
-    assert estado["eventos"] == 1
     assert estado["pagos"] == 1
     assert estado["estados"] == ["borrador", "confirmada"]
 
@@ -182,7 +178,6 @@ def test_dos_confirmaciones_concurrentes_de_la_misma_venta_descuentan_una_vez(
     estado = _estado(pg_sessions, pid, [venta])
     assert estado["stock"] == 3
     assert estado["movimientos"] == 1
-    assert estado["eventos"] == 1
     assert estado["pagos"] == 1
     assert estado["estados"] == ["confirmada"]
 
@@ -215,7 +210,6 @@ def test_dos_anulaciones_concurrentes_de_la_misma_venta_devuelven_stock_una_vez(
     estado = _estado(pg_sessions, pid, [venta])
     assert estado["stock"] == 5  # 5 - 2 (venta) + 2 (anulacion), una sola vez
     assert estado["movimientos"] == 2
-    assert estado["eventos"] == 2  # venta.confirmada + venta.anulada
     assert estado["estados"] == ["anulada"]
 
 

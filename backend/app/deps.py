@@ -39,8 +39,27 @@ def get_db() -> Generator[Session, None, None]:
         session.close()
 
 
+_MEMORY_REDIS_SCHEME = "memory://"
+_memory_redis: redis_lib.Redis | None = None
+
+
+def _get_memory_redis() -> redis_lib.Redis:
+    """Singleton fakeredis del proceso para `REDIS_URL=memory://` (dev/test).
+
+    El validador de Settings garantiza que solo se llega aqui con ENV dev/test.
+    """
+    global _memory_redis
+    if _memory_redis is None:
+        import fakeredis
+
+        _memory_redis = fakeredis.FakeRedis(decode_responses=True)
+    return _memory_redis
+
+
 def get_redis(settings: Settings = Depends(get_settings)) -> redis_lib.Redis:
     """Cliente Redis sincronico (design decision 7); testeable con fakeredis."""
+    if settings.redis_url.startswith(_MEMORY_REDIS_SCHEME):
+        return _get_memory_redis()
     return redis_lib.Redis.from_url(settings.redis_url, decode_responses=True)
 
 

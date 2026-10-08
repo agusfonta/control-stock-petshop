@@ -12,7 +12,6 @@ from pydantic import ValidationError
 
 from app.schemas import (
     BusquedaResponse,
-    ListaPrecioCreate,
     MargenMinimoRequest,
     ProductoCreate,
     ProductoResponse,
@@ -184,24 +183,6 @@ def test_margen_minimo_stock_negativo_rechazado() -> None:
 def test_margen_minimo_campo_extra_rechazado() -> None:
     with pytest.raises(ValidationError):
         MargenMinimoRequest(margen_pct=0.5, stock_actual=3)
-
-
-# --- ListaPrecioCreate ---
-
-
-def test_lista_precio_create_ok() -> None:
-    lp = ListaPrecioCreate(distribuidora_id="d1", producto_id="p1", costo=800)
-    assert lp.costo == Decimal("800")
-
-
-def test_lista_precio_create_costo_negativo_rechazado() -> None:
-    with pytest.raises(ValidationError):
-        ListaPrecioCreate(distribuidora_id="d1", producto_id="p1", costo=-1)
-
-
-def test_lista_precio_create_sin_producto_id_rechazado() -> None:
-    with pytest.raises(ValidationError):
-        ListaPrecioCreate(distribuidora_id="d1", costo=100)
 
 
 # --- PaginacionResponse / BusquedaResponse ---

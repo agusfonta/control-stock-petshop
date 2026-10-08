@@ -3,8 +3,13 @@
 Ninguna credencial real: usuarios seed con passwords `test-only-*`.
 """
 
-import httpx
-import pytest
+import os
+
+# Antes de importar `app`: bcrypt al minimo (4 rounds) solo para la suite.
+os.environ.setdefault("BCRYPT_ROUNDS", "4")
+
+import httpx  # noqa: E402
+import pytest  # noqa: E402
 import pytest_asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

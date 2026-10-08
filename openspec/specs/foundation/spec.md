@@ -31,7 +31,7 @@ The system SHALL proveer `docker compose up` con servicios `api` (puerto 8000), 
 
 ### Requirement: CI paralela backend/frontend
 
-The system SHALL proveer `.github/workflows/ci.yml` con jobs paralelos `backend` (pytest) y `frontend` (tsc + build) que corren en cada PR a `main`.
+The system SHALL proveer `.github/workflows/ci.yml` con jobs paralelos `backend` (ruff + pytest) y `frontend` (knip + vitest + build) que corren en cada PR a `main`, con timeout por job y cancelación de ejecuciones obsoletas.
 
 #### Scenario: CI verde en PR
 
