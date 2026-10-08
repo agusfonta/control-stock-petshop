@@ -8,3 +8,11 @@ dist/
 dev.db
 *.db-journal
 *.log
+
+# Herramientas del agente (no son parte del producto)
+.opencode/
+.atl/
+.active-orchestrator-state.json
+
+# Artefactos de TypeScript
+*.tsbuildinfo

@@ -7,7 +7,7 @@
 | Backend | Python + FastAPI + SQLAlchemy + Alembic | FastAPI 0.116, SQLAlchemy 2.0 |
 | Auth | JWT (python-jose) + passlib/bcrypt | — |
 | DB | PostgreSQL | 16 |
-| Async/colas | Redis (tareas asíncronas: FE, reportes, alertas) | 7 |
+| Async/colas | Redis (hoy: rate limit y refresh tokens de auth; futuro C-11: tareas asíncronas de FE ARCA) | 7 |
 | Frontend | React + TypeScript + Vite | React 19, Vite 8 |
 | Infra local | Docker / Docker Compose | — |
 | Test | pytest + pytest-asyncio + httpx | — |
@@ -16,11 +16,11 @@ Arranque limpio (Enfoque B): mismo stack del demo Animall + TypeScript y Redis e
 
 ## Arquitectura general
 
-Web app clásica FE → API REST → Postgres, con Redis para lo asíncrono (emisión FE ARCA, envío de alertas, jobs de reportes). Monolito modular FastAPI con routers por dominio (ventas, stock, compras, clientes, auth). Frontend SPA en tablet del local + PC. Despliegue separado BE/FE/DB (ver `12_devops_y_despliegue.md`).
+Web app clásica FE → API REST → Postgres, con Redis para auth (rate limit, refresh) y, a futuro (C-11), lo asíncrono de la emisión FE ARCA; las alertas de stock y los reportes se calculan directo desde la DB. Monolito modular FastAPI con routers por dominio (ventas, stock, compras, clientes, auth). Frontend SPA en tablet del local + PC. Despliegue separado BE/FE/DB (ver `12_devops_y_despliegue.md`).
 
 ```
 Tablet/PC (React) → FastAPI REST (JWT) → Postgres
-                        └→ Redis (jobs: ARCA, alertas, reportes)
+                        └→ Redis (auth hoy; jobs de ARCA a futuro, C-11)
                         └→ ARCA / Mercado Pago (externos)
 ```
 

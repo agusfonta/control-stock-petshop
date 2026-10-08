@@ -57,7 +57,7 @@ Usa SQLite y un Redis en memoria; no hace falta instalar PostgreSQL ni Redis. De
 # 1) Backend: entorno virtual y dependencias
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r backend/requirements.txt
+pip install -r backend/requirements.txt -r backend/requirements-dev.txt   # -dev solo hace falta para tests y lint
 
 # 2) Variables de entorno (valores de prueba SOLO para desarrollo local; nunca usarlos en producción)
 $env:ENV = "dev"
@@ -143,16 +143,22 @@ Por API (solo rol dueña): `POST /api/migracion/productos`, multipart con `archi
 # Backend (desde backend/, con el venv activo)
 cd backend
 pytest -q
+ruff check .   # lint
 ```
 
-La suite completa tarda unos 12 minutos (el hash bcrypt es lento a propósito). Los tests marcados `pg_only` necesitan una base PostgreSQL accesible por la variable `TEST_PG_URL` y se omiten si no está definida; en CI corren contra un servicio Postgres.
+La suite completa tarda unos 2 minutos: el hash bcrypt es lento a propósito, pero `tests/conftest.py` fija `BCRYPT_ROUNDS=4` (el mínimo de bcrypt) para que los tests no paguen el costo de producción. Los tests marcados `pg_only` necesitan una base PostgreSQL accesible por la variable `TEST_PG_URL` y se omiten si no está definida; en CI corren contra un servicio Postgres.
 
 ```bash
 # Frontend (desde frontend/)
 cd frontend
 npm test            # vitest, una sola corrida
 npm run build       # chequeo de tipos (tsc estricto) + build de producción
+npm run knip        # detecta código, exports y dependencias sin uso
 ```
+
+### Costo del hash de contraseñas (`BCRYPT_ROUNDS`)
+
+Variable de entorno opcional que define el costo (rounds) de bcrypt al hashear contraseñas. Por defecto vale **12**; se acepta entre 4 y 31. Fuera de `ENV=dev` y `ENV=test` el valor mínimo es 12: con un valor menor la API se niega a arrancar. La suite de tests la baja a 4 por sí sola; no hace falta definirla para desarrollar.
 
 ### Problemas comunes
 
@@ -165,13 +171,25 @@ npm run build       # chequeo de tipos (tsc estricto) + build de producción
 
 ## Estructura del proyecto
 
+### La app
+
 ```
 backend/            API FastAPI (app/), migraciones (alembic/), scripts (scripts/: init_db, seed, seed_demo, importar_productos, generar_excel_prueba), tests/
 frontend/           App React + TypeScript (src/), tests con Vitest
-knowledge-base/     Base de conocimiento: visión, reglas de negocio, modelo de datos, arquitectura
-openspec/           Specs y changes (flujo OPSX): openspec/specs/ (fuente de verdad) y openspec/changes/
-CHANGES.md          Roadmap de changes, dependencias y camino crítico
 docker-compose.yml  Entorno local completo (db, redis, api, frontend)
+```
+
+### Herramientas del agente
+
+No son parte del producto: documentan el dominio y guían el trabajo asistido por agentes (flujo OPSX).
+
+```
+CLAUDE.md           Instrucciones para agentes (AGENTS.md solo remite a este archivo)
+openspec/           Specs y changes: openspec/specs/ (fuente de verdad) y openspec/changes/
+CHANGES.md          Roadmap de changes, dependencias y camino crítico
+knowledge-base/     Base de conocimiento: visión, reglas de negocio, modelo de datos, arquitectura
+discovery/          Investigación de mercado previa
+.atl/               Estado local de los agentes (no versionado)
 ```
 
 Para entender el dominio, empezá por [`knowledge-base/README.md`](knowledge-base/README.md); para ver qué está hecho y qué falta, por [`CHANGES.md`](CHANGES.md).

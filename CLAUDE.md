@@ -9,7 +9,7 @@
 | Backend | Python + FastAPI + SQLAlchemy + Alembic | FastAPI 0.116, SQLAlchemy 2.0 |
 | Auth | JWT (python-jose) + passlib/bcrypt | — |
 | DB | PostgreSQL | 16 |
-| Async/colas | Redis (FE ARCA, alertas, reportes) | 7 |
+| Async/colas | Redis (auth hoy; FE ARCA a futuro, C-11) | 7 |
 | Frontend | React + TypeScript + Vite | React 19, Vite 8 |
 | Infra local | Docker / Docker Compose | — |
 | Test | pytest + pytest-asyncio + httpx | — |
