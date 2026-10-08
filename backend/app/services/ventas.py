@@ -185,6 +185,8 @@ def crear_venta(
                 cantidad=linea.cantidad,
                 precio_unit=precio_unit,
                 subtotal=subtotal,
+                # C-14 D1: el costo se congela junto con el precio.
+                costo_unit=Decimal(str(productos[linea.producto_id].costo)),
             )
         )
     venta.total = total

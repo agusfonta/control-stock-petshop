@@ -221,6 +221,9 @@ def test_idempotency_key_igual_en_usuarios_distintos_permitida(
         ("precio_unit", -5),
         ("subtotal", 0),
         ("subtotal", -5),
+        # C-14 D1: el costo congelado es NULL o positivo (nunca 0 ni negativo).
+        ("costo_unit", 0),
+        ("costo_unit", -5),
     ],
 )
 def test_linea_valores_no_positivos_rechazados(

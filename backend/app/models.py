@@ -467,6 +467,8 @@ class Venta(Base, AuditMixin):
         Index("ix_venta_cliente_id_created_at", "cliente_id", "created_at"),
         Index("ix_venta_usuario_id_created_at", "usuario_id", "created_at"),
         Index("ix_venta_created_at", "created_at"),
+        # C-14 D11: todos los reportes filtran estado + rango de confirmada_at.
+        Index("ix_venta_estado_confirmada_at", "estado", "confirmada_at"),
     )
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -532,6 +534,10 @@ class LineaVenta(Base):
             "precio_unit > 0", name="ck_linea_venta_precio_unit_positivo"
         ),
         CheckConstraint("subtotal > 0", name="ck_linea_venta_subtotal_positivo"),
+        CheckConstraint(
+            "costo_unit IS NULL OR costo_unit > 0",
+            name="ck_linea_venta_costo_unit_positivo",
+        ),
         UniqueConstraint(
             "venta_id", "producto_id", name="uq_linea_venta_venta_producto"
         ),
@@ -552,6 +558,11 @@ class LineaVenta(Base):
     cantidad = Column(Integer, nullable=False)
     precio_unit = Column(Numeric(10, 2), nullable=False)
     subtotal = Column(Numeric(12, 2), nullable=False)
+    # Costo del producto congelado junto con precio_unit al crear el borrador
+    # (C-14 D1) para el margen historico. NULL en lineas previas a la 0008:
+    # sin backfill, los reportes las informan aparte. Nunca sale por la API
+    # de ventas.
+    costo_unit = Column(Numeric(10, 2), nullable=True)
 
     venta = relationship("Venta", back_populates="lineas")
     producto = relationship("Producto")
