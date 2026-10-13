@@ -4,6 +4,7 @@ POST/GET/PUT/DELETE /api/distribuidoras/{id}/listas. Par unico
 (distribuidora, producto): duplicado responde 409. Escritura solo duena.
 """
 
+from tests.compras_helpers import login as _login
 from tests.conftest import (
     DUENA_EMAIL,
     DUENA_PASSWORD,
@@ -13,15 +14,6 @@ from tests.conftest import (
 
 DISTRIBUIDORAS_URL = "/api/distribuidoras"
 PRODUCTOS_URL = "/api/productos"
-
-
-async def _login(client, email: str, password: str) -> dict:
-    response = await client.post(
-        "/api/auth/login", json={"email": email, "password": password}
-    )
-    assert response.status_code == 200
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
 
 
 async def _crear_distribuidora(client, headers, nombre="Distri Sur") -> str:

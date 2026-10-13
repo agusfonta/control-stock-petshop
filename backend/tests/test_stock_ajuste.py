@@ -8,6 +8,7 @@ ni el endpoint ni services/stock.py.
 """
 
 
+from tests.compras_helpers import movimientos_de
 from tests.conftest import (
     DUENA_EMAIL,
     DUENA_PASSWORD,
@@ -25,18 +26,6 @@ async def _crear(client, headers, **overrides):
     )
     assert response.status_code == 201
     return response.json()
-
-
-def _movimientos_de(db_session_factory, producto_id: str) -> list:
-    from app.models import MovimientoStock
-
-    with db_session_factory() as session:
-        return (
-            session.query(MovimientoStock)
-            .filter_by(producto_id=producto_id)
-            .order_by(MovimientoStock.created_at.asc())
-            .all()
-        )
 
 
 async def test_ajuste_positivo_genera_movimiento(client, db_session_factory) -> None:
@@ -92,7 +81,7 @@ async def test_ajuste_como_mostrador_403_sin_cambios(
     assert (await client.get(f"{PRODUCTOS_URL}/{creado['id']}", headers=duena)).json()[
         "stock_actual"
     ] == 10
-    assert _movimientos_de(db_session_factory, creado["id"]) == []
+    assert movimientos_de(db_session_factory, creado["id"]) == []
 
 
 async def test_ajuste_anonimo_401(client) -> None:
@@ -117,7 +106,7 @@ async def test_ajuste_motivo_vacio_422_sin_cambios(
     assert (await client.get(f"{PRODUCTOS_URL}/{creado['id']}", headers=headers)).json()[
         "stock_actual"
     ] == 10
-    assert _movimientos_de(db_session_factory, creado["id"]) == []
+    assert movimientos_de(db_session_factory, creado["id"]) == []
 
 
 async def test_ajuste_stock_negativo_422_sin_cambios(
@@ -134,7 +123,7 @@ async def test_ajuste_stock_negativo_422_sin_cambios(
     assert (await client.get(f"{PRODUCTOS_URL}/{creado['id']}", headers=headers)).json()[
         "stock_actual"
     ] == 2
-    assert _movimientos_de(db_session_factory, creado["id"]) == []
+    assert movimientos_de(db_session_factory, creado["id"]) == []
 
 
 async def test_ajuste_producto_inexistente_404_sin_movimiento(
@@ -147,7 +136,7 @@ async def test_ajuste_producto_inexistente_404_sin_movimiento(
         headers=headers,
     )
     assert response.status_code == 404
-    assert _movimientos_de(db_session_factory, "no-existe") == []
+    assert movimientos_de(db_session_factory, "no-existe") == []
 
 
 async def test_put_con_stock_422_sin_cambios(client, db_session_factory) -> None:
@@ -162,7 +151,7 @@ async def test_put_con_stock_422_sin_cambios(client, db_session_factory) -> None
     body = (await client.get(f"{PRODUCTOS_URL}/{creado['id']}", headers=headers)).json()
     assert body["stock_actual"] == 10
     assert body["nombre"] != "Nuevo nombre"
-    assert _movimientos_de(db_session_factory, creado["id"]) == []
+    assert movimientos_de(db_session_factory, creado["id"]) == []
 
 
 async def test_fallo_movimiento_revierte_stock(client, monkeypatch) -> None:
@@ -206,4 +195,4 @@ async def test_ajuste_payload_malformado_422(client, db_session_factory) -> None
         headers=headers,
     )
     assert response.status_code == 422
-    assert _movimientos_de(db_session_factory, creado["id"]) == []
+    assert movimientos_de(db_session_factory, creado["id"]) == []

@@ -11,6 +11,7 @@ from tests.compras_helpers import (
     PAGOS_URL,
     PEDIDOS_URL,
     contar,
+    contar_movimientos,
     crear_distribuidora,
     crear_pedido,
     crear_producto,
@@ -29,7 +30,7 @@ def _pago(distribuidora_id: str, **overrides) -> dict:
 async def test_pago_201_sin_pedidos_fecha_hoy_y_sin_tocar_nada(
     client, db_session_factory
 ) -> None:
-    from app.models import MovimientoStock, PedidoCompra
+    from app.models import PedidoCompra
 
     headers = await login_duena(client)
     did = await crear_distribuidora(client, headers)
@@ -43,7 +44,7 @@ async def test_pago_201_sin_pedidos_fecha_hoy_y_sin_tocar_nada(
     assert body["activo"] is True
     assert body["nota"] is None
     assert contar(db_session_factory, PedidoCompra) == 0
-    assert contar(db_session_factory, MovimientoStock) == 0
+    assert contar_movimientos(db_session_factory) == 0
 
 
 async def test_pago_con_pedido_existente_no_toca_pedido_ni_stock(client) -> None:

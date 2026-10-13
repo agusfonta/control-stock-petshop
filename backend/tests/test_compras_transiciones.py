@@ -9,6 +9,7 @@ existe.
 from tests.compras_helpers import (
     PEDIDOS_URL,
     contar,
+    contar_movimientos,
     crear_distribuidora,
     crear_pedido,
     crear_producto,
@@ -35,11 +36,11 @@ async def _pedido_simple(client, headers, stock=3, cantidad=10):
 
 
 def _efectos(db_session_factory) -> tuple[int, int]:
-    from app.models import EntradaStock, MovimientoStock
+    from app.models import EntradaStock
 
     return (
         contar(db_session_factory, EntradaStock),
-        contar(db_session_factory, MovimientoStock),
+        contar_movimientos(db_session_factory),
     )
 
 
@@ -139,7 +140,7 @@ async def test_cancelar_inexistente_404(client) -> None:
 async def test_barrera_de_base_entrada_preexistente_409_y_rollback_total(
     client, db_session_factory
 ) -> None:
-    from app.models import EntradaStock, MovimientoStock, PedidoCompra, Usuario
+    from app.models import EntradaStock, PedidoCompra, Usuario
 
     headers = await login_duena(client)
     did = await crear_distribuidora(client, headers)
@@ -167,7 +168,7 @@ async def test_barrera_de_base_entrada_preexistente_409_y_rollback_total(
 
     assert (await get_producto(client, headers, a))["stock_actual"] == 3
     assert (await get_producto(client, headers, b))["stock_actual"] == 0
-    assert contar(db_session_factory, MovimientoStock) == 0
+    assert contar_movimientos(db_session_factory) == 0
     assert contar(db_session_factory, EntradaStock) == 1  # solo la preexistente
     with db_session_factory() as session:
         assert session.get(PedidoCompra, pedido["id"]).estado == "pendiente"

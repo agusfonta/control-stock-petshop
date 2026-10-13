@@ -14,6 +14,7 @@ from tests.ventas_helpers import (
     clave_nueva,
     confirmar_venta,
     contar,
+    contar_movimientos,
     crear_producto,
     crear_venta,
     get_producto,
@@ -313,7 +314,7 @@ async def test_confirmar_sin_autenticacion_401(client, db_session_factory) -> No
 async def test_contadores_globales_tras_confirmar_dos_ventas(
     client, db_session_factory
 ) -> None:
-    from app.models import MovimientoStock, PagoVenta
+    from app.models import PagoVenta
 
     duena = await login_duena(client)
     a, b = await _a_y_b(client, duena)
@@ -321,7 +322,7 @@ async def test_contadores_globales_tras_confirmar_dos_ventas(
     v2 = await crear_venta(client, duena, [(a, 1), (b, 1)], clave=clave_nueva())
     await confirmar_venta(client, duena, v1["id"], [pago("efectivo", v1["total"])])
     await confirmar_venta(client, duena, v2["id"], [pago("efectivo", 1000), pago("tarjeta", 1300)])
-    assert contar(db_session_factory, MovimientoStock) == 3
+    assert contar_movimientos(db_session_factory) == 3
     assert contar(db_session_factory, PagoVenta) == 3
 
 

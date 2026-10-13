@@ -71,7 +71,7 @@ def login(
         ) from None
     user = db.query(Usuario).filter_by(email=data.email).one_or_none()
     presented = security.verify_password(
-        data.password, user.password_hash if user else security.DUMMY_HASH
+        data.password, user.password_hash if user else security.dummy_hash()
     )
     if user is None or not presented or not user.activo:
         try:

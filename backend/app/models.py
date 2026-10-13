@@ -154,6 +154,7 @@ class ListaPrecio(Base, AuditMixin):
             "producto_id",
             name="uq_lista_precio_distribuidora_producto",
         ),
+        Index("ix_lista_precio_producto_id", "producto_id"),
     )
 
     id = Column(String(36), primary_key=True, default=_uuid)

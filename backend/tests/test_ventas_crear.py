@@ -12,6 +12,7 @@ from tests.ventas_helpers import (
     VENTAS_URL,
     clave_nueva,
     contar,
+    contar_movimientos,
     crear_cliente,
     crear_producto,
     crear_venta,
@@ -68,7 +69,7 @@ async def test_mostrador_crea_borrador_con_precio_y_total_del_servidor(client) -
 async def test_crear_borrador_no_toca_stock_movimientos_ni_pagos(
     client, db_session_factory
 ) -> None:
-    from app.models import MovimientoStock, PagoVenta
+    from app.models import PagoVenta
 
     duena = await login_duena(client)
     a, b = await _a_y_b(client, duena)
@@ -76,7 +77,7 @@ async def test_crear_borrador_no_toca_stock_movimientos_ni_pagos(
     assert (await get_producto(client, duena, a))["stock_actual"] == 5
     assert (await get_producto(client, duena, b))["stock_actual"] == 1
     assert movimientos_de(db_session_factory, a) == []
-    assert contar(db_session_factory, MovimientoStock) == 0
+    assert contar_movimientos(db_session_factory) == 0
     assert contar(db_session_factory, PagoVenta) == 0
 
 

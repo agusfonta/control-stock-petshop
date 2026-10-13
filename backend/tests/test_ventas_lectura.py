@@ -78,6 +78,43 @@ async def test_mostrador_ve_el_detalle_de_su_venta_con_lineas_y_pagos(client) ->
     assert [(p["metodo"], p["monto"]) for p in body["pagos"]] == [("efectivo", 3000)]
 
 
+async def test_detalle_no_hace_una_consulta_por_linea(
+    client, db_session_factory
+) -> None:
+    """obtener_venta carga lineas, productos y pagos con selectinload (sin N+1)."""
+    from sqlalchemy import event
+
+    duena = await login_duena(client)
+    uno = await _producto(client, duena, sku="NP-1")
+    otros = [await _producto(client, duena, sku=f"NP-{i}") for i in range(2, 6)]
+    una = await venta_confirmada(
+        client, duena, [(uno, 1)], [pago("efectivo", 1500)]
+    )
+    varias = await venta_confirmada(
+        client,
+        duena,
+        [(uno, 1)] + [(p, 1) for p in otros],
+        [pago("efectivo", 1500 * 5)],
+    )
+    engine = db_session_factory.kw["bind"]
+    sentencias: list[str] = []
+
+    def _contar(conn, cursor, statement, *args):
+        sentencias.append(statement)
+
+    async def _consultas(venta_id: str) -> int:
+        sentencias.clear()
+        event.listen(engine, "before_cursor_execute", _contar)
+        try:
+            response = await client.get(f"{VENTAS_URL}/{venta_id}", headers=duena)
+        finally:
+            event.remove(engine, "before_cursor_execute", _contar)
+        assert response.status_code == 200
+        return len(sentencias)
+
+    assert await _consultas(varias["id"]) == await _consultas(una["id"])
+
+
 async def test_detalle_ajeno_404_para_mostrador_y_200_para_duena(client) -> None:
     duena = await login_duena(client)
     mostrador = await login_mostrador(client)

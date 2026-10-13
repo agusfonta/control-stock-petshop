@@ -13,7 +13,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models import Cliente, LineaVenta, PagoVenta, Producto, Usuario, Venta
 from app.schemas import (
@@ -266,14 +266,16 @@ def _es_duena(usuario: Usuario) -> bool:
     return str(usuario.rol) == "duena"
 
 
-def _cargar_venta(db: Session, venta_id: str, usuario: Usuario) -> Venta:
+def _cargar_venta(
+    db: Session, venta_id: str, usuario: Usuario, options: Sequence = ()
+) -> Venta:
     """Venta por id o NoEncontrado; una venta ajena no existe para el mostrador.
 
     D12: la duena opera sobre cualquier venta; un mostrador solo sobre las
     que creo (usuario_id), y la ajena responde 404 (no 403) para no revelar
     que existe.
     """
-    venta = db.get(Venta, venta_id)
+    venta = db.get(Venta, venta_id, options=options)
     if venta is None or (not _es_duena(usuario) and venta.usuario_id != usuario.id):
         raise NoEncontrado("venta no encontrada")
     return venta
@@ -464,7 +466,15 @@ def _replay_anulacion(db: Session, venta: Venta) -> Venta:
 
 def obtener_venta(db: Session, venta_id: str, usuario: Usuario) -> Venta:
     """Detalle de una venta visible para `usuario` o NoEncontrado (D12)."""
-    return _cargar_venta(db, venta_id, usuario)
+    return _cargar_venta(
+        db,
+        venta_id,
+        usuario,
+        options=(
+            selectinload(Venta.lineas).selectinload(LineaVenta.producto),
+            selectinload(Venta.pagos),
+        ),
+    )
 
 
 def _paginar(query, page: int, page_size: int) -> tuple[list[Venta], int]:

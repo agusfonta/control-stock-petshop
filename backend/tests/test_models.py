@@ -220,3 +220,11 @@ def test_lista_precio_relaciona_producto_y_distribuidora(session) -> None:
     session.refresh(lista)
     assert lista.producto.sku == "SKU-LISTA-REL"
     assert lista.distribuidora.nombre == "Distri Sur"
+
+
+def test_lista_precio_declara_el_indice_por_producto() -> None:
+    """El indice de la migracion 0005 tambien vive en el modelo (sin drift)."""
+    from app.models import ListaPrecio
+
+    indices = {i.name: [c.name for c in i.columns] for i in ListaPrecio.__table__.indexes}
+    assert indices["ix_lista_precio_producto_id"] == ["producto_id"]

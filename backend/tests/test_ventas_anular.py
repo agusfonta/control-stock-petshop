@@ -10,7 +10,7 @@ import pytest
 
 from tests.ventas_helpers import (
     VENTAS_URL,
-    contar,
+    contar_movimientos,
     crear_producto,
     crear_venta,
     get_producto,
@@ -242,10 +242,9 @@ async def test_no_se_puede_confirmar_una_venta_recien_anulada(client) -> None:
 
 
 async def test_borrador_sin_confirmar_no_cuenta_para_la_anulacion(client, db_session_factory) -> None:
-    from app.models import MovimientoStock
 
     duena = await login_duena(client)
     a = await crear_producto(client, duena, sku="AN-BR", costo=1000, margen_pct=0.5, stock_actual=5)
     borrador = await crear_venta(client, duena, [(a, 1)])
     assert (await post_anular(client, duena, borrador["id"])).status_code == 409
-    assert contar(db_session_factory, MovimientoStock) == 0
+    assert contar_movimientos(db_session_factory) == 0

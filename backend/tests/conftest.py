@@ -5,7 +5,11 @@ Ninguna credencial real: usuarios seed con passwords `test-only-*`.
 
 import os
 
-# Antes de importar `app`: bcrypt al minimo (4 rounds) solo para la suite.
+# Antes de importar `app`: ENV/SECRET_KEY/DATABASE_URL no tienen default en
+# Settings, asi que la suite los fija; y bcrypt al minimo (4 rounds).
+os.environ.setdefault("ENV", "test")
+os.environ.setdefault("SECRET_KEY", "test-only-secret-key-not-for-production")
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("BCRYPT_ROUNDS", "4")
 
 import httpx  # noqa: E402

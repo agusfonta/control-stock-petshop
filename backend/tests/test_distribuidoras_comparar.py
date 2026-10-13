@@ -5,20 +5,12 @@ activa ordenados por costo ASC, cada uno con precio_sugerido =
 costo x (1 + margen_pct) recalculado (RN-PR-01/RN-PR-03). Solo lectura.
 """
 
+from tests.compras_helpers import login as _login
 from tests.conftest import DUENA_EMAIL, DUENA_PASSWORD
 
 DISTRIBUIDORAS_URL = "/api/distribuidoras"
 PRODUCTOS_URL = "/api/productos"
 COMPARAR_URL = "/api/distribuidoras/comparar"
-
-
-async def _login(client, email: str, password: str) -> dict:
-    response = await client.post(
-        "/api/auth/login", json={"email": email, "password": password}
-    )
-    assert response.status_code == 200
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
 
 
 async def _crear_distribuidora(client, headers, nombre="Distri") -> str:

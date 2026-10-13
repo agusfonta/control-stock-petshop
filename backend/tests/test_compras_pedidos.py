@@ -10,6 +10,7 @@ from tests.compras_helpers import (
     PEDIDOS_URL,
     agregar_a_lista,
     contar,
+    contar_movimientos,
     crear_distribuidora,
     crear_pedido,
     crear_producto,
@@ -24,7 +25,6 @@ from tests.compras_helpers import (
 async def test_crear_pedido_201_sin_mover_stock_ni_movimientos(
     client, db_session_factory
 ) -> None:
-    from app.models import MovimientoStock
 
     headers = await login_duena(client)
     did = await crear_distribuidora(client, headers)
@@ -41,7 +41,7 @@ async def test_crear_pedido_201_sin_mover_stock_ni_movimientos(
     assert body["lineas"][0]["cantidad"] == 10
     assert (await get_producto(client, headers, pid))["stock_actual"] == 3
     assert movimientos_de(db_session_factory, pid) == []
-    assert contar(db_session_factory, MovimientoStock) == 0
+    assert contar_movimientos(db_session_factory) == 0
 
 
 async def test_costo_de_linea_tomado_de_la_lista(client) -> None:

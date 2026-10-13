@@ -4,6 +4,7 @@ PATCH /api/productos/{id}/margen-minimo — solo duena (RN-PR-02, RN-ST-02).
 Al cambiar margen_pct, precio_venta se recalcula (RN-PR-01).
 """
 
+from tests.compras_helpers import login as _login
 from tests.conftest import DUENA_EMAIL, DUENA_PASSWORD, MOSTRADOR_EMAIL, MOSTRADOR_PASSWORD
 
 PRODUCTOS_URL = "/api/productos"
@@ -19,15 +20,6 @@ def _producto_payload(**overrides):
     }
     payload.update(overrides)
     return payload
-
-
-async def _login(client, email: str, password: str) -> dict:
-    response = await client.post(
-        "/api/auth/login", json={"email": email, "password": password}
-    )
-    assert response.status_code == 200
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
 
 
 async def _crear(client, headers, **overrides):

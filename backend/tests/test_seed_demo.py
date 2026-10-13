@@ -47,6 +47,27 @@ def _seed(factory, **kwargs):
     return run_seed_demo(session_factory=factory, **params)
 
 
+@pytest.fixture(scope="module")
+def demo_sembrado():
+    """Base con el demo ya sembrado, compartida por los tests de solo lectura."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.models import Base
+
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, future=True)
+    _seed(factory)
+    yield factory
+    engine.dispose()
+
+
 def _contar(factory) -> dict[str, int]:
     with factory() as s:
         return {
@@ -112,12 +133,10 @@ def test_passwords_se_leen_de_variables_de_entorno(
     assert roles == {OWNER_EMAIL: "duena", MOSTRADOR_EMAIL: "mostrador"}
 
 
-def test_crea_duena_y_mostrador_con_password_valido(db_session_factory) -> None:
+def test_crea_duena_y_mostrador_con_password_valido(demo_sembrado) -> None:
     from app.core.security import verify_password
 
-    _seed(db_session_factory)
-
-    with db_session_factory() as s:
+    with demo_sembrado() as s:
         duena = s.query(Usuario).filter_by(email=OWNER_EMAIL).one()
         mostrador = s.query(Usuario).filter_by(email=MOSTRADOR_EMAIL).one()
     assert duena.rol == "duena" and duena.activo
@@ -126,10 +145,8 @@ def test_crea_duena_y_mostrador_con_password_valido(db_session_factory) -> None:
     assert verify_password(MOSTRADOR_PWD, mostrador.password_hash)
 
 
-def test_catalogo_productos_distribuidoras_y_clientes(db_session_factory) -> None:
-    _seed(db_session_factory)
-
-    with db_session_factory() as s:
+def test_catalogo_productos_distribuidoras_y_clientes(demo_sembrado) -> None:
+    with demo_sembrado() as s:
         productos = s.query(Producto).filter(Producto.activo.is_(True)).all()
         assert len(productos) >= 15
         assert len({p.categoria for p in productos}) >= 4
@@ -145,32 +162,26 @@ def test_catalogo_productos_distribuidoras_y_clientes(db_session_factory) -> Non
         assert s.query(Cliente).count() >= 6
 
 
-def test_listas_de_precios_se_superponen(db_session_factory) -> None:
-    _seed(db_session_factory)
-
-    with db_session_factory() as s:
+def test_listas_de_precios_se_superponen(demo_sembrado) -> None:
+    with demo_sembrado() as s:
         por_producto: dict[str, set[str]] = defaultdict(set)
         for lp in s.query(ListaPrecio).all():
             por_producto[lp.producto_id].add(lp.distribuidora_id)
     assert any(len(dists) >= 2 for dists in por_producto.values())
 
 
-def test_pedido_recibido_y_pedido_pendiente(db_session_factory) -> None:
-    _seed(db_session_factory)
-
-    with db_session_factory() as s:
+def test_pedido_recibido_y_pedido_pendiente(demo_sembrado) -> None:
+    with demo_sembrado() as s:
         estados = [p.estado for p in s.query(PedidoCompra).all()]
     assert "recibido" in estados
     assert "pendiente" in estados
 
 
-def test_ventas_en_varios_dias_con_anulada_y_tres_medios(db_session_factory) -> None:
-    _seed(db_session_factory)
-
+def test_ventas_en_varios_dias_con_anulada_y_tres_medios(demo_sembrado) -> None:
     zona = ZoneInfo(get_settings().reportes_tz)
     hoy = datetime.now(timezone.utc).astimezone(zona).date()
 
-    with db_session_factory() as s:
+    with demo_sembrado() as s:
         confirmadas = s.query(Venta).filter(Venta.estado == "confirmada").all()
         anuladas = s.query(Venta).filter(Venta.estado == "anulada").all()
         dias = {
@@ -197,11 +208,9 @@ def test_ventas_en_varios_dias_con_anulada_y_tres_medios(db_session_factory) -> 
 
 
 def test_cada_producto_con_stock_tiene_movimientos_consistentes(
-    db_session_factory,
+    demo_sembrado,
 ) -> None:
-    _seed(db_session_factory)
-
-    with db_session_factory() as s:
+    with demo_sembrado() as s:
         productos = s.query(Producto).all()
         for p in productos:
             movs = (

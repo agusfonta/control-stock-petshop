@@ -12,10 +12,12 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql://petshop:petshop@localhost:5432/petshop"
+    # Sin default a proposito: un entorno mal configurado debe abortar el
+    # arranque en vez de caer en credenciales o modo "dev" implicitos.
+    database_url: str
+    secret_key: str
+    env: str
     redis_url: str = "redis://localhost:6379/0"
-    secret_key: str = "changeme"
-    env: str = "dev"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
     # Zona del negocio para imputar ventas a un dia local en los reportes

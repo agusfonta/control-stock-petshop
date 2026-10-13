@@ -16,6 +16,8 @@ import pytest
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import IntegrityError
 
+from tests.alembic_helpers import limpiar_settings, preparar_alembic
+
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 VENTAS_TABLAS = {"venta", "linea_venta", "pago_venta", "evento_outbox"}
 INDICE = "ix_venta_estado_confirmada_at"
@@ -24,26 +26,8 @@ CHECK = "ck_linea_venta_costo_unit_positivo"
 
 @pytest.fixture()
 def alembic_en_0007(tmp_path, monkeypatch):
-    from alembic import command
-    from alembic.config import Config
-
-    from app.core.config import get_settings
-    from app.models import Base
-
-    url = f"sqlite:///{(tmp_path / 'mig.db').as_posix()}"
-    previas = [t for t in Base.metadata.sorted_tables if t.name not in VENTAS_TABLAS]
-    engine = create_engine(url)
-    Base.metadata.create_all(engine, tables=previas)
-    engine.dispose()
-
-    monkeypatch.setenv("DATABASE_URL", url)
-    get_settings.cache_clear()
-    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
-    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-    command.stamp(cfg, "0006")
-    command.upgrade(cfg, "0007")
-    yield cfg, url
-    get_settings.cache_clear()
+    yield preparar_alembic(tmp_path, monkeypatch, VENTAS_TABLAS, "0006", "0007")
+    limpiar_settings()
 
 
 def _sembrar_linea_previa(url: str) -> None:

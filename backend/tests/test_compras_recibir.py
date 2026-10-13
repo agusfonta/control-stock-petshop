@@ -13,6 +13,7 @@ from tests.compras_helpers import (
     PEDIDOS_URL,
     agregar_a_lista,
     contar,
+    contar_movimientos,
     crear_distribuidora,
     crear_pedido,
     crear_producto,
@@ -126,7 +127,7 @@ async def test_recibir_anonimo_401_sin_cambios(client) -> None:
 
 
 async def test_recibir_inexistente_404_sin_cambios(client, db_session_factory) -> None:
-    from app.models import EntradaStock, MovimientoStock
+    from app.models import EntradaStock
 
     headers = await login_duena(client)
     _, a, _, _ = await _pedido_dos_lineas(client, headers)
@@ -135,7 +136,7 @@ async def test_recibir_inexistente_404_sin_cambios(client, db_session_factory) -
     assert "pedido" in response.json()["detail"]
     assert (await get_producto(client, headers, a))["stock_actual"] == 3
     assert contar(db_session_factory, EntradaStock) == 0
-    assert contar(db_session_factory, MovimientoStock) == 0
+    assert contar_movimientos(db_session_factory) == 0
 
 
 # --- Triangulacion (5.3) ---
@@ -144,7 +145,7 @@ async def test_recibir_inexistente_404_sin_cambios(client, db_session_factory) -
 async def test_fallo_en_segunda_linea_revierte_todo(
     client, db_session_factory, monkeypatch
 ) -> None:
-    from app.models import EntradaStock, MovimientoStock, PedidoCompra
+    from app.models import EntradaStock, PedidoCompra
     from app.services import compras as svc_compras
 
     headers = await login_duena(client)
@@ -178,7 +179,7 @@ async def test_fallo_en_segunda_linea_revierte_todo(
     assert (producto_a["stock_actual"], producto_a["costo"]) == (3, 1000)
     assert (producto_b["stock_actual"], producto_b["costo"]) == (1, 250)
     assert contar(db_session_factory, EntradaStock) == 0
-    assert contar(db_session_factory, MovimientoStock) == 0
+    assert contar_movimientos(db_session_factory) == 0
     with db_session_factory() as session:
         assert session.get(PedidoCompra, pedido["id"]).estado == "pendiente"
         assert session.get(PedidoCompra, pedido["id"]).recibido_at is None

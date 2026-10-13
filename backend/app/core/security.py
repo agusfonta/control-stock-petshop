@@ -7,6 +7,7 @@ por hash malformado (timing/enumeracion: login siempre compara).
 
 import uuid
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -24,10 +25,13 @@ _pwd = CryptContext(
     bcrypt__rounds=get_settings().bcrypt_rounds,
 )
 
-# Hash dummy para anti-timing: ante email inexistente el login compara
-# contra este valor (hash valido, bcrypt corre completo) para no revelar
-# existencia por tiempo de respuesta.
-DUMMY_HASH = _pwd.hash("dummy-anti-timing-seed")
+
+@lru_cache
+def dummy_hash() -> str:
+    """Hash dummy para anti-timing: ante email inexistente el login compara
+    contra este valor (hash valido, bcrypt corre completo) para no revelar
+    existencia por tiempo de respuesta. Lazy: no se paga al importar."""
+    return _pwd.hash("dummy-anti-timing-seed")
 
 
 class InvalidTokenError(ValueError):

@@ -29,6 +29,7 @@ from app.services.stock import (
     ProductoNoEncontrado,
     StockError,
     StockNegativo,
+    aplicar_movimiento,
     ajustar as ajustar_stock,
 )
 
@@ -75,7 +76,6 @@ def crear_producto(
     current: deps.Usuario = Depends(deps.require_duena),
 ) -> ProductoResponse:
     """Crea un producto; precio_venta se calcula solo (RN-PR-01)."""
-    _ = current
     existente = db.query(Producto).filter_by(sku=data.sku).one_or_none()
     if existente is not None:
         raise HTTPException(
@@ -90,12 +90,19 @@ def crear_producto(
         unidad=data.unidad,
         costo=data.costo,
         margen_pct=data.margen_pct,
-        stock_actual=data.stock_actual,
+        stock_actual=0,
         stock_minimo=data.stock_minimo,
         distribuidora_default_id=data.distribuidora_default_id,
     )
     db.add(producto)
     try:
+        db.flush()
+        if data.stock_actual > 0:
+            # RN-ST-03: el stock inicial viaja con su movimiento de apertura.
+            aplicar_movimiento(
+                db, producto.id, data.stock_actual, "apertura", current,
+                motivo="stock inicial",
+            )
         db.commit()
     except IntegrityError:
         db.rollback()

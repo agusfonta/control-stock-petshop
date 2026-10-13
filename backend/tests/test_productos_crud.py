@@ -6,6 +6,7 @@ lectura = cualquier usuario activo.
 """
 
 
+from tests.compras_helpers import login as _login
 from tests.conftest import (
     DUENA_EMAIL,
     DUENA_PASSWORD,
@@ -32,15 +33,6 @@ def _producto_payload(**overrides):
     return payload
 
 
-async def _login(client, email: str, password: str) -> dict:
-    response = await client.post(
-        "/api/auth/login", json={"email": email, "password": password}
-    )
-    assert response.status_code == 200
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
 # --- Crear ---
 
 
@@ -55,6 +47,44 @@ async def test_crear_producto_201_con_precio_venta_calculado(client) -> None:
     assert body["precio_venta"] == 1500  # 1000 * (1 + 0.5)
     assert body["activo"] is True
     assert body["id"]
+
+
+async def test_crear_producto_con_stock_inicial_genera_movimiento_apertura(
+    client, db_session_factory
+) -> None:
+    """RN-ST-03: el stock inicial deja su MovimientoStock de apertura."""
+    from app.models import MovimientoStock
+
+    headers = await _login(client, DUENA_EMAIL, DUENA_PASSWORD)
+    response = await client.post(
+        PRODUCTOS_URL, json=_producto_payload(stock_actual=10), headers=headers
+    )
+    assert response.status_code == 201
+    assert response.json()["stock_actual"] == 10
+    with db_session_factory() as session:
+        movimientos = session.query(MovimientoStock).all()
+        assert len(movimientos) == 1
+        mov = movimientos[0]
+        assert mov.producto_id == response.json()["id"]
+        assert mov.tipo == "apertura"
+        assert mov.cantidad == 10
+        assert (mov.stock_previo, mov.stock_nuevo) == (0, 10)
+        assert mov.motivo == "stock inicial"
+
+
+async def test_crear_producto_con_stock_cero_no_genera_movimiento(
+    client, db_session_factory
+) -> None:
+    from app.models import MovimientoStock
+
+    headers = await _login(client, DUENA_EMAIL, DUENA_PASSWORD)
+    response = await client.post(
+        PRODUCTOS_URL, json=_producto_payload(stock_actual=0), headers=headers
+    )
+    assert response.status_code == 201
+    assert response.json()["stock_actual"] == 0
+    with db_session_factory() as session:
+        assert session.query(MovimientoStock).count() == 0
 
 
 async def test_crear_producto_sin_auth_401(client) -> None:

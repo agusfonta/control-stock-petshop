@@ -50,3 +50,31 @@ def test_demo_permitida_solo_en_dev_y_test() -> None:
 
     assert Settings(_env_file=None, secret_key="changeme", env="dev").env == "dev"
     assert Settings(_env_file=None, secret_key="changeme", env="test").env == "test"
+
+
+@pytest.mark.parametrize("faltante", ["ENV", "SECRET_KEY", "DATABASE_URL"])
+def test_variables_criticas_sin_default_son_obligatorias(
+    monkeypatch: pytest.MonkeyPatch, faltante: str
+) -> None:
+    """ENV, SECRET_KEY y DATABASE_URL no tienen default: falta -> no arranca."""
+    from app.core.config import Settings
+
+    for nombre in ("ENV", "SECRET_KEY", "DATABASE_URL"):
+        monkeypatch.setenv(nombre, "dev" if nombre == "ENV" else "valor-de-prueba-largo-123456789012")
+    monkeypatch.delenv(faltante)
+
+    with pytest.raises(ValidationError) as exc:
+        Settings(_env_file=None)
+    assert faltante.lower() in str(exc.value).lower()
+
+
+def test_variables_criticas_presentes_arrancan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import Settings
+
+    monkeypatch.setenv("ENV", "dev")
+    monkeypatch.setenv("SECRET_KEY", "test-only-ephemeral-key")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    settings = Settings(_env_file=None)
+    assert (settings.env, settings.database_url) == ("dev", "sqlite:///:memory:")

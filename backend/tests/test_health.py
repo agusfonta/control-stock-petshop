@@ -6,28 +6,15 @@ from pydantic import ValidationError
 
 
 @pytest.mark.asyncio
-async def test_health_ok() -> None:
-    from app.main import app
-
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/api/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": "0.1.0"}
-
-
-@pytest.mark.asyncio
-async def test_health_no_auth_no_db() -> None:
-    """Health responds 200 without token and without DB/Redis (design §3)."""
+async def test_health_ok_sin_auth_ni_db() -> None:
+    """Health responde 200 sin token ni DB/Redis (design §3)."""
     from app.main import app
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get("/api/health", headers={"Authorization": ""})
     assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "ok"
-    assert body["version"] == "0.1.0"
+    assert response.json() == {"status": "ok", "version": "0.1.0"}
 
 
 def test_health_response_schema_strict() -> None:

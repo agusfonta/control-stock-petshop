@@ -15,39 +15,16 @@ import pytest
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import IntegrityError
 
+from tests.alembic_helpers import limpiar_settings, preparar_alembic, tablas
+
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 VENTAS_TABLAS = {"venta", "linea_venta", "pago_venta", "evento_outbox"}
 
 
 @pytest.fixture()
 def alembic_sqlite(tmp_path, monkeypatch):
-    from alembic import command
-    from alembic.config import Config
-
-    from app.core.config import get_settings
-    from app.models import Base
-
-    url = f"sqlite:///{(tmp_path / 'mig.db').as_posix()}"
-    previas = [t for t in Base.metadata.sorted_tables if t.name not in VENTAS_TABLAS]
-    engine = create_engine(url)
-    Base.metadata.create_all(engine, tables=previas)
-    engine.dispose()
-
-    monkeypatch.setenv("DATABASE_URL", url)
-    get_settings.cache_clear()
-    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
-    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-    command.stamp(cfg, "0006")
-    yield cfg, url
-    get_settings.cache_clear()
-
-
-def _tablas(url: str) -> set[str]:
-    engine = create_engine(url)
-    try:
-        return set(inspect(engine).get_table_names())
-    finally:
-        engine.dispose()
+    yield preparar_alembic(tmp_path, monkeypatch, VENTAS_TABLAS, "0006")
+    limpiar_settings()
 
 
 def test_0007_es_hija_de_0006_y_esta_en_la_cadena() -> None:
@@ -66,14 +43,14 @@ def test_0007_upgrade_downgrade_upgrade_sin_residuos(alembic_sqlite) -> None:
     from alembic import command
 
     cfg, url = alembic_sqlite
-    assert not (VENTAS_TABLAS & _tablas(url))
+    assert not (VENTAS_TABLAS & tablas(url))
     # C-14: se apunta a 0007 (no a head) para ejercitar solo esta migracion.
     command.upgrade(cfg, "0007")
-    assert VENTAS_TABLAS <= _tablas(url)
+    assert VENTAS_TABLAS <= tablas(url)
     command.downgrade(cfg, "0006")
-    assert not (VENTAS_TABLAS & _tablas(url))
+    assert not (VENTAS_TABLAS & tablas(url))
     command.upgrade(cfg, "0007")
-    assert VENTAS_TABLAS <= _tablas(url)
+    assert VENTAS_TABLAS <= tablas(url)
 
 
 def test_0007_crea_indices_y_uniques(alembic_sqlite) -> None:

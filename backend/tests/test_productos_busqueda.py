@@ -3,6 +3,7 @@
 GET /api/productos/buscar?q= usa OR(sku == q, nombre ILIKE %q%) con paginado.
 """
 
+from tests.compras_helpers import login as _login
 from tests.conftest import DUENA_EMAIL, DUENA_PASSWORD, MOSTRADOR_EMAIL, MOSTRADOR_PASSWORD
 
 BUSCAR_URL = "/api/productos/buscar"
@@ -17,15 +18,6 @@ def _producto_payload(**overrides):
     }
     payload.update(overrides)
     return payload
-
-
-async def _login(client, email: str, password: str) -> dict:
-    response = await client.post(
-        "/api/auth/login", json={"email": email, "password": password}
-    )
-    assert response.status_code == 200
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
 
 
 async def _crear(client, headers, **overrides):

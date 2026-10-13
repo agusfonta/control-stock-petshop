@@ -4,6 +4,7 @@ Escritura solo duena (guards C-03); lectura cualquier usuario activo.
 Borrado = soft-delete (activo=False), nunca fisico.
 """
 
+from tests.compras_helpers import login as _login
 from tests.conftest import (
     DUENA_EMAIL,
     DUENA_PASSWORD,
@@ -18,15 +19,6 @@ def _distribuidora_payload(**overrides):
     payload = {"nombre": "Distri Sur", "cuit": "30-12345678-9"}
     payload.update(overrides)
     return payload
-
-
-async def _login(client, email: str, password: str) -> dict:
-    response = await client.post(
-        "/api/auth/login", json={"email": email, "password": password}
-    )
-    assert response.status_code == 200
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
 
 
 # --- Crear ---

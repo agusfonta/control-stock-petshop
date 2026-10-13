@@ -178,3 +178,14 @@ def test_refresh_trae_claims_y_ttl_largo() -> None:
     assert payload["type"] == "refresh"
     assert "jti" in payload
     assert payload["exp"] - payload["iat"] == 7 * 24 * 3600
+
+
+def test_dummy_hash_es_lazy_valido_y_cacheado() -> None:
+    """El hash anti-timing no se calcula al importar: se genera una sola vez al usarlo."""
+    from app.core import security
+
+    assert not hasattr(security, "DUMMY_HASH")
+    primero = security.dummy_hash()
+    assert primero.startswith("$2b$")
+    assert security.verify_password("otra-clave", primero) is False
+    assert security.dummy_hash() is primero
