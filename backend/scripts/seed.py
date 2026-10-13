@@ -20,7 +20,7 @@ OWNER_ROLE = "duena"
 def run_seed(session_factory=None, owner_password: str | None = None) -> dict:
     """Ensure the owner user exists; return a summary. Idempotent."""
     from app.core.db import SessionLocal
-    from app.models import Usuario
+    from app.modules.auth.models import Usuario
 
     if owner_password is None:
         owner_password = os.environ.get("SEED_OWNER_PASSWORD")

@@ -15,10 +15,10 @@
 control-stock-petshop/
 ├── backend/
 │   └── app/
-│       ├── routers/ (auth, productos, ventas, compras, clientes, reportes)
-│       ├── services/ (ventas, stock, precios, fe_arca, mp)
-│       ├── models.py / schemas.py / deps.py
-│       └── core/ (config, security, db)
+│       ├── modules/ (health, auth, productos, stock, distribuidoras, compras, clientes, ventas, reportes, migracion)
+│       │   └── <dominio>/ models.py · schemas.py · service.py · router.py   (modules/models.py agrega todos los modelos)
+│       ├── deps.py / main.py
+│       └── core/ (config, security, db, base, schemas, texto, rate_limit, refresh_store)
 ├── frontend/
 │   └── src/
 │       ├── features/ (pos, stock, compras, clientes, reportes)

@@ -96,7 +96,7 @@ def movimientos_de(db_session_factory, producto_id: str, incluir_apertura: bool 
     """Movimientos del producto. Por defecto excluye el de apertura (stock
     inicial al crearlo, RN-ST-03) para que los tests vean solo lo que ocurre
     despues del setup."""
-    from app.models import MovimientoStock
+    from app.modules.stock.models import MovimientoStock
 
     with db_session_factory() as session:
         query = session.query(MovimientoStock).filter_by(producto_id=producto_id)
@@ -112,7 +112,7 @@ def contar(db_session_factory, modelo) -> int:
 
 def contar_movimientos(db_session_factory) -> int:
     """Cantidad de movimientos de stock sin contar las aperturas del setup."""
-    from app.models import MovimientoStock
+    from app.modules.stock.models import MovimientoStock
 
     with db_session_factory() as session:
         return session.query(MovimientoStock).filter(MovimientoStock.tipo != "apertura").count()

@@ -21,9 +21,9 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Usuario
-from app.schemas import MapeoColumnas, ReporteImportacion
-from app.services.migracion import (
+from app.modules.auth.models import Usuario
+from app.modules.migracion.schemas import MapeoColumnas, ReporteImportacion
+from app.modules.migracion.service import (
     ArchivoDemasiadoGrande,
     ArchivoNoAdmitido,
     CatalogoCambio,

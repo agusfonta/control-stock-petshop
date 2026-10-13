@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.security import InvalidTokenError, decode_token
-from app.models import Usuario
+from app.modules.auth.models import Usuario
 
 __all__ = [
     "Settings",

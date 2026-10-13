@@ -176,7 +176,7 @@ Variable de entorno opcional que define el costo (rounds) de bcrypt al hashear c
 ### La app
 
 ```
-backend/            API FastAPI (app/), migraciones (alembic/), scripts (scripts/: init_db, seed, seed_demo, importar_productos, generar_excel_prueba), tests/
+backend/            API FastAPI (app/modules/<dominio>/: models, schemas, service, router; app/core/ transversal), migraciones (alembic/), scripts (scripts/: init_db, seed, seed_demo, importar_productos, generar_excel_prueba), tests/<dominio>/
 frontend/           App React + TypeScript (src/), tests con Vitest
 docker-compose.yml  Entorno local completo (db, redis, api, frontend)
 ```

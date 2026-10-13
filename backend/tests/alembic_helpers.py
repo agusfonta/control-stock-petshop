@@ -21,11 +21,11 @@ def preparar_alembic(
     migraciones); `subir_a` aplica las migraciones reales hasta esa revision.
     El llamador debe limpiar `get_settings` al terminar (ver `limpiar_settings`).
     """
-    from alembic import command
     from alembic.config import Config
 
+    from alembic import command
     from app.core.config import get_settings
-    from app.models import Base
+    from app.modules.models import Base
 
     url = f"sqlite:///{(tmp_path / 'mig.db').as_posix()}"
     previas = [t for t in Base.metadata.sorted_tables if t.name not in excluir]

@@ -390,3 +390,18 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
   - `knowledge-base/02_descripcion_general.md` §Infra local
 
 ---
+
+---
+
+## Mantenimiento
+
+### [C-16] `reorganizacion-por-modulos`
+- **Estado**: `[x]` completado (archivado 2026-10-13)
+- **Scope**: Refactor interno del backend, sin cambio de comportamiento, de schema ni de contrato HTTP
+  - De capas técnicas (`routers/`, `services/`, `models.py`, `schemas.py`) a un paquete por dominio en `backend/app/modules/<dominio>/` (`models`, `schemas`, `service`, `router`); `app/modules/models.py` agrega todos los modelos
+  - `service.py` nuevo en productos, clientes y distribuidoras (errores de dominio; el router solo traduce a HTTP)
+  - Tests agrupados en `backend/tests/<dominio>/`
+- **Dependencias**: ninguna (fuera del camino crítico)
+- **Governance**: MEDIO (auth se movió verbatim)
+- **Leer antes**:
+  - `openspec/changes/archive/*-c-16-reorganizacion-por-modulos/design.md`

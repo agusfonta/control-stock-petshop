@@ -29,7 +29,7 @@ INACTIVO_PASSWORD = "test-only-inactivo-password"
 
 @pytest.fixture
 def db_session_factory():
-    from app.models import Base
+    from app.modules.models import Base
 
     engine = create_engine(
         "sqlite:///:memory:",
@@ -43,7 +43,7 @@ def db_session_factory():
 @pytest.fixture
 def seed_users(db_session_factory):
     from app.core.security import hash_password
-    from app.models import Usuario
+    from app.modules.auth.models import Usuario
 
     with db_session_factory() as session:
         session.add(
