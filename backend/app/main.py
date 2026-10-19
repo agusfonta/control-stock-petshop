@@ -4,20 +4,18 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-
-from app.routers import (
-    auth,
-    clientes,
-    compras,
-    distribuidoras,
-    health,
-    migracion,
-    productos,
-    reportes,
-    stock,
-    usuarios,
-    ventas,
-)
+from app.modules.auth import router as auth
+from app.modules.auth import usuarios_router as usuarios
+from app.modules.clientes import router as clientes
+from app.modules.compras import router as compras
+from app.modules.distribuidoras import router as distribuidoras
+from app.modules.health import router as health
+from app.modules.migracion import router as migracion
+from app.modules.models import metadata  # noqa: F401  (registra TODOS los modelos y backrefs)
+from app.modules.productos import router as productos
+from app.modules.reportes import router as reportes
+from app.modules.stock import router as stock
+from app.modules.ventas import router as ventas
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)

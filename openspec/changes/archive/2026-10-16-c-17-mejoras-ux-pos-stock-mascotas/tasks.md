@@ -1,0 +1,51 @@
+# Tasks
+
+Orden por riesgo: bloque 1 (fusión) → 2 (mascotas) → 3 (POS, CRÍTICO: puerta de aprobación antes de escribir código). Strict TDD: cada tarea escribe primero el test que falla. Sin `any`. Sin commits/PR (los hace la usuaria). Cada bloque cierra con su suite en verde.
+
+## 1. Fusión Productos + Stock (frontend, sin backend)
+
+- [x] 1.1 Safety net: correr `ProductosPage.test.tsx`, `StockPage.test.tsx`, `AppShell.test.tsx` y `router.test.tsx` y anotar el baseline en verde (`npx vitest run` de esos archivos).
+- [x] 1.2 RED: tests de la tabla unificada en `ProductosPage.test.tsx` — dueña ve Costo/Margen/Precio/Stock/Mínimo/Estado y las acciones Editar, Margen y mínimo, Ajustar stock y Dar de baja en la misma fila; mostrador ve Precio/Stock/Estado sin acciones; banner de alertas ("N productos bajo el mínimo."); toggle "Solo bajo mínimo" pide `bajo_minimo=true`; búsqueda "Buscar productos" usa `/productos/buscar`. Verificación: los tests nuevos fallan.
+- [x] 1.3 GREEN: reescribir `ProductosPage.tsx` con una sola `DataTable` alimentada por `useStockList` / `useProductos` búsqueda, incorporando banner, toggle y menú de acciones; reutilizar `ProductoSheet`, `MargenMinimoDialog`, `AjusteStockDialog`, `StockBadge`. Verificación: tests de 1.2 en verde.
+- [x] 1.4 Triangular y migrar casos de `StockPage.test.tsx` (ajuste −2 "Quedará en 8" / "Stock ajustado: 10 → 8", "Indicá el motivo", stock negativo, mostrador sin "Ajustar stock") a `ProductosPage.test.tsx`; borrar `StockPage.tsx` y su test. Verificación: `npx vitest run src/features` en verde y `npx tsc --noEmit` sin errores.
+- [x] 1.5 RED/GREEN navegación: `nav.ts` con una única entrada "Productos y stock" (`/productos`, `alertas: true`), `router.tsx` con `/stock` → `<Navigate to="/productos" replace>` conservando query; actualizar `AppShell.test.tsx` (badge "3" en la nueva entrada, sin badge con 0) y agregar test de redirect en `router.test.tsx`. Verificación: tests en verde.
+- [x] 1.6 Correr lint (`npm run lint`) y `knip` si está en CI para detectar código muerto de `features/stock`. Verificación: sin errores.
+
+## 2. Mascotas por cliente (backend + frontend)
+
+- [x] 2.1 Safety net: correr `backend/tests/clientes/` y `tests/infra/` (baseline en verde).
+- [x] 2.2 RED backend schemas: `tests/clientes/test_mascotas_schemas.py` — nombre recortado, vacío o de más de 100 caracteres rechazado, `tipo` ∈ {perro,gato,otro}, `extra=forbid`. Verificación: fallan por import inexistente.
+- [x] 2.3 GREEN: `MascotaCreate/Update/Response` en `clientes/schemas.py` y modelo `Mascota` en `clientes/models.py` (FK `clientes.id`, índice `cliente_id`, `CheckConstraint` de `tipo`), registrado en `app/modules/models.py`. Verificación: tests de 2.2 en verde.
+- [x] 2.4 Migración Alembic `0010_mascotas` (`down_revision="0009"`, upgrade crea tabla+índice, downgrade la elimina); actualizar el test de cabeza de migraciones (`tests/infra`) a `0010`. Verificación: test de migración en verde y `alembic upgrade head` / `downgrade 0009` sin error en SQLite.
+- [x] 2.5 RED servicio: `tests/clientes/test_mascotas_service.py` — crear, listar solo activas en orden de creación, actualizar, baja lógica, cliente inexistente y mascota de otro cliente → error de dominio. GREEN: funciones en `clientes/service.py`. Verificación: en verde.
+- [x] 2.6 RED API: `tests/clientes/test_mascotas.py` — POST (dueña y mostrador → 201), GET autenticado, PUT/DELETE solo dueña (mostrador 403, anónimo 401), `tipo` inválido 422, otro cliente 404, DELETE 204 y desaparece del listado. GREEN: endpoints `/clientes/{id}/mascotas[...]` en `clientes/router.py` (router delgado). Verificación: en verde.
+- [x] 2.7 RED frontend: tests en `ClientesPage.test.tsx` (describe detalle) — lista "Firulais · perro" y "Mishi · gato", estado vacío con "Agregar mascota", alta por mostrador ("Mascota agregada"), nombre vacío muestra error sin request, editar/baja solo dueña. GREEN: tipos en `shared/api/types.ts`, hooks + `queryKeys.clientes.mascotas` en `clientes/api.ts`, `MascotaSheet.tsx` (zod + `Select` shadcn) y sección "Mascotas" en `ClienteDetallePage.tsx`. Verificación: tests en verde, `tsc` sin errores, sin `any`.
+- [x] 2.8 Documentar: actualizar `knowledge-base/04_modelo_de_datos.md` (entidad Mascota, ERD `Cliente 1—N Mascota`) y registrar C-17 en `CHANGES.md`. Verificación: archivos actualizados.
+- [x] 2.9 Correr la suite de backend completa en background (`pytest`, ~2 min) y la de frontend. Verificación: todo en verde.
+
+## 3. POS — efectivo en un solo lugar (gobernanza CRÍTICA)
+
+- [x] 3.0 PUERTA: presentar a la usuaria el diseño D2 y esperar su OK explícito antes de modificar `features/pos`. Verificación: aprobación recibida en el chat.
+- [x] 3.1 Safety net: correr `CheckoutSheet.test.tsx`, `PosCheckoutFlow.test.tsx`, `PosPage.test.tsx`, `payments.test.ts`, `pagoRows.test.ts`, `checkout.test.ts`, `Comprobante.test.tsx` (baseline en verde).
+- [x] 3.2 RED: tests nuevos en `CheckoutSheet.test.tsx` — (a) no existe una tarjeta "Paga con" fuera de la fila: "Paga con" está dentro de la fila de efectivo (mismo grupo que "Monto efectivo"); (b) pago mixto efectivo 20000 + transferencia 18500 (total 38500), paga con 25000 → vuelto "5.000,00", la fila de transferencia no tiene "Paga con", se confirma con `[{efectivo, "20000.00"},{transferencia,"18500.00"}]` y `onSuccess` recibe vuelto 500000; (c) dos filas de efectivo suman los vueltos de cada fila; (d) quitar o cambiar de medio una fila descarta su "paga con"; (e) foco inicial en el primer "Paga con" y Enter confirma. Verificación: fallan.
+- [x] 3.3 GREEN: en `CheckoutForm.tsx` reemplazar `pagaCon` global por `Record<rowId,string>`, quitar la tarjeta "Paga con" separada y calcular el vuelto total como suma por fila; en `PagoRowEditor.tsx` renderizar bajo el monto (solo si `metodo==="efectivo"` y monto > 0) el input "Paga con" (`data-paga-con`), los atajos `quickCashOptions` y el bloque "Vuelto"; ajustar `CheckoutSheet.onOpenAutoFocus` a `[data-paga-con]`. No modificar `checkout.ts`, `payments.ts`, `useCheckout.ts` ni backend. Verificación: tests de 3.2 y los existentes en verde.
+- [x] 3.4 Triangular casos borde: paga con menor al efectivo (aviso, sin vuelto), paga con vacío (vuelto null en `onSuccess`), cambio de monto efectivo recalcula atajos y vuelto, 5 filas máximo. REFACTOR sin cambiar comportamiento. Verificación: `npx vitest run src/features/pos` y `tsc` en verde; `git diff --stat` no toca `checkout.ts`/`payments.ts`/backend.
+- [x] 3.5 Verificación manual en el navegador (`/run`): cobrar efectivo con vuelto, cobro mixto y comprobante con vuelto. Verificación: capturas/observación reportadas a la usuaria.
+- [x] 3.6 Suite frontend completa (`npm test`) y `lint`. Verificación: todo en verde.
+
+## 4. Ajustes tras prueba manual del POS (CRÍTICO, aprobado por la usuaria)
+
+Decisiones de la usuaria tras probar: (a) la fila de efectivo tiene un único campo, "Paga con"; el efectivo a cobrar se calcula (total − otros medios); (b) cada medio se usa una sola vez (máx. 3 pagos). Ver specs/pos-mostrador y design D2b. Mismas restricciones: solo `frontend/src/features/pos/`, sin tocar `checkout.ts`, `useCheckout.ts`, backend ni la forma de los pagos enviados.
+
+- [x] 4.1 RED: tests en `CheckoutSheet.test.tsx` — la fila de efectivo tiene solo "Paga con" (sin textbox "Monto efectivo"); efectivo solo: "Efectivo a cobrar" = total y vuelto correcto; mixto total 38.500 + transferencia 18.500 + paga con 25.000 → efectivo a cobrar 20.000, vuelto 5.000, pagos enviados efectivo 20000 y transferencia 18500; con "Paga con" vacío se confirma exacto con vuelto `null`; medio ya usado deshabilitado en las otras filas; "Agregar otro medio" deshabilitado con 3 filas; transferencia + tarjeta sin efectivo muestra "Faltan". Ajustar/reemplazar los tests que asumían dos filas de efectivo, el máximo de 5 medios o el monto de efectivo tipeado (anotar cuáles). Verificación: los tests nuevos fallan.
+- [x] 4.2 GREEN: en `CheckoutForm.tsx`/`PagoRowEditor.tsx`, medios únicos (opciones usadas deshabilitadas, `MAX` visible = 3 en la UI) y fila de efectivo con un único input "Paga con" más "Efectivo a cobrar" derivado (`max(0, total − suma de otros medios)`) que alimenta los drafts enviados; `pagaCon` vuelve a ser un único valor. Sin cambiar firmas de `payments.ts`/`pagoRows.ts` (si no alcanza, parar y reportar). Verificación: tests de 4.1 y los existentes ajustados en verde.
+- [x] 4.3 Triangular: efectivo derivado 0 o negativo (otros medios suman ≥ total) bloquea la confirmación y muestra "Sobran"; quitar la fila de efectivo y volver a agregarla; foco inicial en "Paga con"; Enter confirma. REFACTOR sin cambiar comportamiento. Verificación: `npx vitest run src/features/pos`, `npx tsc --noEmit -p .` y `npm run knip` en verde.
+- [x] 4.4 Verificación manual en el navegador: efectivo solo con vuelto, mixto efectivo + transferencia, intentar repetir un medio. Verificación: observación reportada a la usuaria.
+
+## 5. Autocompletar el segundo medio de pago (CRÍTICO, pedido de la usuaria tras probar)
+
+Regla: al "Agregar otro medio" con efectivo en juego y "Paga con" informado menor al total, el nuevo medio arranca con `total − paga con` (editable); si "Paga con" está vacío o ≥ total, arranca vacío. Sin efectivo en juego se mantiene la sugerencia "lo que falta". Solo `features/pos`, sin tocar `checkout.ts`/`useCheckout.ts`/backend ni la forma de los pagos.
+
+- [x] 5.1 RED: tests en `CheckoutSheet.test.tsx` — total 10.000, "Paga con" 9000, "Agregar otro medio" → el monto del nuevo medio es "1000", el efectivo a cobrar pasa a 9.000 y no hay vuelto; editar ese monto lo recalcula; con "Paga con" vacío el nuevo monto está vacío; con paga con ≥ total también vacío; se confirma con los pagos esperados (efectivo 9000 y transferencia 1000). Verificación: fallan.
+- [x] 5.2 GREEN + triangular: implementar el monto inicial del medio agregado en `CheckoutForm.tsx`; verificar que "Completar", quitar fila y los demás tests siguen verdes. Verificación: `npx vitest run src/features/pos`, `npx tsc --noEmit -p .`, `npm run knip` y suite completa en verde.
+- [x] 5.3 Verificación manual en el navegador del caso de la captura (total 10.000, paga con 9000, agregar transferencia). Verificación: observación reportada a la usuaria.

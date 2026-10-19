@@ -306,7 +306,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
   - Worker Redis (outbox): emite FE al confirmar venta, guarda CAE/número; si falla queda pendiente + alerta sin tumbar la venta
   - Outbox: el outbox provisorio de C-10 fue ELIMINADO en la limpieza (tabla `evento_outbox`, modelo, servicio y la migración 0009 que la dropea). C-11 debe crearlo con el contrato real de ARCA: tabla propia + `registrar_evento` invocado en confirmar/anular venta (eventos `venta.confirmada` → emitir FE, con `ComprobanteFE` de `venta_id` único, y `venta.anulada` → decidir nota de crédito), consumidos por el worker con `FOR UPDATE SKIP LOCKED` en Postgres; Redis solo como aviso opcional post-commit, la fuente de verdad es la tabla
   - Endpoints: `POST /api/ventas/{id}/facturar`, `GET /api/comprobantes?estado=pendiente`, `POST /api/comprobantes/{id}/reintentar`
-  - Config: `ARCA_CERT/KEY`, punto de venta y CUIT por env (pendiente dato fiscal real)
+  - Config: `ARCA_CERT/KEY`, punto de venta y CUIT por env (pendiente dato fiscal real; checklist de datos a pedir en `docs/arca-checklist-datos.md`)
   - Tests: emisión ok guarda CAE, error deja pendiente + reintento, venta confirmada aunque FE falle
 - **Dependencias**: C-10
 - **Governance**: ALTO
@@ -390,3 +390,44 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
   - `knowledge-base/02_descripcion_general.md` §Infra local
 
 ---
+
+---
+
+## Mantenimiento
+
+### [C-16] `reorganizacion-por-modulos`
+- **Estado**: `[x]` completado (archivado 2026-10-13)
+- **Scope**: Refactor interno del backend, sin cambio de comportamiento, de schema ni de contrato HTTP
+  - De capas técnicas (`routers/`, `services/`, `models.py`, `schemas.py`) a un paquete por dominio en `backend/app/modules/<dominio>/` (`models`, `schemas`, `service`, `router`); `app/modules/models.py` agrega todos los modelos
+  - `service.py` nuevo en productos, clientes y distribuidoras (errores de dominio; el router solo traduce a HTTP)
+  - Tests agrupados en `backend/tests/<dominio>/`
+- **Dependencias**: ninguna (fuera del camino crítico)
+- **Governance**: MEDIO (auth se movió verbatim)
+- **Leer antes**:
+  - `openspec/changes/archive/*-c-16-reorganizacion-por-modulos/design.md`
+
+### [C-17] `mejoras-ux-pos-stock-mascotas`
+- **Estado**: `[x]` completado (archivado 2026-10-16)
+- **Scope**: Mejoras pedidas por la dueña tras usar la app, en tres bloques
+  - Fusión Productos + Stock en una sola tabla (`/stock` redirige a `/productos`; frontend, sin backend)
+  - Mascotas por cliente: entidad `Mascota` (nombre, tipo `perro|gato|otro`), migración 0010, endpoints `/api/clientes/{id}/mascotas` y sección en la ficha del cliente
+  - POS: la fila de efectivo tiene un único campo "Paga con" (efectivo a cobrar = total − otros medios), un medio por venta (máx. 3) y el segundo medio se autocompleta con lo que falta (sin tocar el contrato de venta)
+- **Dependencias**: C-09, C-10
+- **Governance**: CRÍTICO para el bloque POS (dinero); MEDIO el resto
+- **Leer antes**:
+  - `openspec/changes/archive/2026-10-16-c-17-mejoras-ux-pos-stock-mascotas/design.md`
+  - `knowledge-base/04_modelo_de_datos.md`
+
+---
+
+### [C-18] `clientes-mascotas-pulido`
+- **Estado**: `[x]` completado (archivado 2026-10-19)
+- **Scope**: Pulido de la página de clientes a partir de una auditoría + mascota opcional al crear cliente
+  - Alta de cliente con mascota opcional, atómica en backend (`POST /api/clientes` acepta `mascota`); el POS sigue pidiendo solo nombre
+  - Sección Mascotas robusta (carga, error con reintento, tipo con mayúscula) y cliente dado de baja en solo lectura (409 al crear/editar sus mascotas)
+  - Paginación fuera de rango, validación de teléfono en español, foco en errores de servidor, textos
+- **Dependencias**: C-17
+- **Governance**: MEDIO
+- **Leer antes**:
+  - `openspec/changes/archive/2026-10-19-c-18-clientes-mascotas-pulido/design.md`
+  - `knowledge-base/06_funcionalidades.md` §US-007

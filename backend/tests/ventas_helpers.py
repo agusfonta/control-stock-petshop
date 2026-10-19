@@ -5,6 +5,7 @@ import uuid
 from tests.compras_helpers import (  # noqa: F401  (re-export para los tests)
     PRODUCTOS_URL,
     contar,
+    contar_movimientos,
     crear_producto,
     get_producto,
     login_duena,

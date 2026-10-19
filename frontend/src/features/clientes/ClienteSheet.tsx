@@ -1,11 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type ReactElement, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useController, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { MascotaFields } from "@/features/clientes/MascotaFields";
 import { useCrearCliente, useEditarCliente } from "@/features/clientes/api";
 import {
   type ClienteFormValues,
@@ -26,11 +27,15 @@ interface ClienteSheetProps {
   onSaved?: (cliente: Cliente) => void;
 }
 
-const CAMPOS: ReadonlySet<string> = new Set<keyof ClienteFormValues>(["nombre", "telefono", "email", "direccion"]);
-
-function esCampo(campo: string): campo is keyof ClienteFormValues {
-  return CAMPOS.has(campo);
-}
+/** Campo del servidor (loc sin `body`) -> campo del formulario. */
+const CAMPOS: Readonly<Record<string, keyof ClienteFormValues>> = {
+  nombre: "nombre",
+  telefono: "telefono",
+  email: "email",
+  direccion: "direccion",
+  "mascota.nombre": "mascotaNombre",
+  "mascota.tipo": "mascotaTipo",
+};
 
 /** Alta/edicion de cliente en panel lateral; `409` de email y `422` van al campo (UX6). */
 export function ClienteSheet({ open, onOpenChange, cliente, onSaved }: ClienteSheetProps): ReactElement {
@@ -41,9 +46,12 @@ export function ClienteSheet({ open, onOpenChange, cliente, onSaved }: ClienteSh
     register,
     handleSubmit,
     reset,
+    control,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<ClienteFormValues>({ resolver: zodResolver(clienteSchema), defaultValues: valoresClienteVacios() });
+
+  const { field: tipoMascota } = useController({ control, name: "mascotaTipo" });
 
   useEffect(() => {
     if (open) reset(cliente === null ? valoresClienteVacios() : valoresClienteDesde(cliente));
@@ -66,12 +74,13 @@ export function ClienteSheet({ open, onOpenChange, cliente, onSaved }: ClienteSh
       }
       let marcado = false;
       if (error.status === 409) {
-        setError("email", { message: "Ya existe un cliente con ese email" });
+        setError("email", { message: "Ya existe un cliente con ese email" }, { shouldFocus: true });
         marcado = true;
       }
       for (const [campo, mensaje] of Object.entries(error.fieldErrors)) {
-        if (esCampo(campo)) {
-          setError(campo, { message: mensaje });
+        const destino = CAMPOS[campo];
+        if (destino !== undefined) {
+          setError(destino, { message: mensaje }, { shouldFocus: true });
           marcado = true;
         }
       }
@@ -128,6 +137,21 @@ export function ClienteSheet({ open, onOpenChange, cliente, onSaved }: ClienteSh
                 />
                 <FieldError>{errors.direccion?.message}</FieldError>
               </Field>
+              {esAlta && (
+                <FieldSet className="gap-4">
+                  <FieldLegend variant="label">Mascota (opcional)</FieldLegend>
+                  <MascotaFields
+                    idPrefix="cliente-mascota"
+                    nombreLabel="Nombre de la mascota"
+                    tipoLabel="Tipo de mascota"
+                    nombreInput={register("mascotaNombre")}
+                    nombreError={errors.mascotaNombre?.message}
+                    tipoValue={tipoMascota.value}
+                    onTipoChange={tipoMascota.onChange}
+                    tipoError={errors.mascotaTipo?.message}
+                  />
+                </FieldSet>
+              )}
             </FieldGroup>
           </div>
           <SheetFooter className="flex-row justify-end gap-2 border-t">

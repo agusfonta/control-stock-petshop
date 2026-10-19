@@ -92,18 +92,27 @@ async def get_producto(client, headers, producto_id) -> dict:
     return response.json()
 
 
-def movimientos_de(db_session_factory, producto_id: str) -> list:
-    from app.models import MovimientoStock
+def movimientos_de(db_session_factory, producto_id: str, incluir_apertura: bool = False) -> list:
+    """Movimientos del producto. Por defecto excluye el de apertura (stock
+    inicial al crearlo, RN-ST-03) para que los tests vean solo lo que ocurre
+    despues del setup."""
+    from app.modules.stock.models import MovimientoStock
 
     with db_session_factory() as session:
-        return (
-            session.query(MovimientoStock)
-            .filter_by(producto_id=producto_id)
-            .order_by(MovimientoStock.created_at.asc())
-            .all()
-        )
+        query = session.query(MovimientoStock).filter_by(producto_id=producto_id)
+        if not incluir_apertura:
+            query = query.filter(MovimientoStock.tipo != "apertura")
+        return query.order_by(MovimientoStock.created_at.asc()).all()
 
 
 def contar(db_session_factory, modelo) -> int:
     with db_session_factory() as session:
         return session.query(modelo).count()
+
+
+def contar_movimientos(db_session_factory) -> int:
+    """Cantidad de movimientos de stock sin contar las aperturas del setup."""
+    from app.modules.stock.models import MovimientoStock
+
+    with db_session_factory() as session:
+        return session.query(MovimientoStock).filter(MovimientoStock.tipo != "apertura").count()

@@ -5,7 +5,7 @@ entorno, sin defaults), un catalogo petshop, distribuidoras con listas de
 precios superpuestas, clientes, un pedido recibido y uno pendiente, y ventas
 de los ultimos 7 dias (una anulada) para que todos los reportes tengan datos.
 
-Todo cambio de stock pasa por `services.stock.aplicar_movimiento` (via las
+Todo cambio de stock pasa por `stock.service.aplicar_movimiento` (via las
 funciones de `services.compras` y `services.ventas`), asi cada unidad tiene su
 movimiento. Solo las fechas de las ventas se retrasan despues de confirmarlas
 (UPDATE directo de `venta`) para repartirlas en la semana.
@@ -209,7 +209,7 @@ def _leer_passwords(owner: str | None, mostrador: str | None) -> tuple[str, str]
 def _asegurar_usuarios(factory, owner_password: str, mostrador_password: str):
     """Duena (via run_seed) y mostrador, get-or-create sin pisar passwords."""
     from app.core.security import hash_password
-    from app.models import Usuario
+    from app.modules.auth.models import Usuario
     from scripts.seed import OWNER_EMAIL, run_seed
 
     run_seed(session_factory=factory, owner_password=owner_password)
@@ -249,26 +249,23 @@ def _repartir(total: Decimal, pagos: tuple[tuple[str, int], ...]) -> list[tuple[
 
 
 def _crear_datos(factory, owner_email: str) -> dict[str, int]:
-    from app.models import (
-        Cliente,
-        Distribuidora,
-        ListaPrecio,
-        Producto,
-        Usuario,
-        Venta,
-    )
-    from app.schemas import (
+    from app.core.config import get_settings
+    from app.modules.auth.models import Usuario
+    from app.modules.clientes.models import Cliente
+    from app.modules.compras import service as compras
+    from app.modules.compras.schemas import LineaPedidoCreate, PedidoCreate
+    from app.modules.distribuidoras.models import Distribuidora, ListaPrecio
+    from app.modules.productos.models import Producto
+    from app.modules.stock.service import aplicar_movimiento
+    from app.modules.ventas import service as ventas
+    from app.modules.ventas.models import Venta
+    from app.modules.ventas.schemas import (
         AnularVentaRequest,
         ConfirmarVentaRequest,
-        LineaPedidoCreate,
         LineaVentaIn,
         PagoVentaIn,
-        PedidoCreate,
         VentaCreate,
     )
-    from app.core.config import get_settings
-    from app.services import compras, ventas
-    from app.services.stock import aplicar_movimiento
 
     zona = ZoneInfo(get_settings().reportes_tz)
     ahora = datetime.now(timezone.utc)
@@ -441,7 +438,7 @@ def run_seed_demo(
     owner_pwd, mostrador_pwd = _leer_passwords(owner_password, mostrador_password)
 
     from app.core.db import SessionLocal
-    from app.models import Producto
+    from app.modules.productos.models import Producto
 
     factory = session_factory or SessionLocal
     owner_email = _asegurar_usuarios(factory, owner_pwd, mostrador_pwd)

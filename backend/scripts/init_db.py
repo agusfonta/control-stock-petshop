@@ -20,9 +20,9 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 def _alembic_upgrade(url: str) -> None:
     """`alembic upgrade head` contra `url` (env.py lee DATABASE_URL de Settings)."""
-    from alembic import command
     from alembic.config import Config
 
+    from alembic import command
     from app.core.config import get_settings
 
     os.environ["DATABASE_URL"] = url
@@ -34,7 +34,7 @@ def _alembic_upgrade(url: str) -> None:
 
 def _crear_desde_modelos(url: str) -> None:
     from app.core.db import build_engine
-    from app.models import Base
+    from app.modules.models import Base
 
     parsed = make_url(url)
     if parsed.database and parsed.database != ":memory:":

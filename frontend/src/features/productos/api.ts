@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UseMutationResult, UseQueryResult } from "@tanstack/react-query";
 import { apiFetch } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
@@ -12,30 +12,6 @@ import type {
   ProductoCreate,
   ProductoUpdate,
 } from "@/shared/api/types";
-
-export const PAGE_SIZE = 20;
-
-interface ProductosParams {
-  page: number;
-  /** Texto de busqueda ya normalizado (vacio = listado completo). */
-  q: string;
-}
-
-/** Listado paginado; con texto usa `/productos/buscar` (SKU exacto o nombre parcial). */
-export function useProductos({ page, q }: ProductosParams): UseQueryResult<Paginated<Producto>> {
-  const texto = q.trim();
-  return useQuery({
-    queryKey: texto === "" ? queryKeys.productos.list({ page }) : queryKeys.productos.buscar(texto, { page }),
-    queryFn: ({ signal }) =>
-      texto === ""
-        ? apiFetch<Paginated<Producto>>("/productos", { query: { page, page_size: PAGE_SIZE }, signal })
-        : apiFetch<Paginated<Producto>>("/productos/buscar", {
-            query: { q: texto, page, page_size: PAGE_SIZE },
-            signal,
-          }),
-    placeholderData: keepPreviousData,
-  });
-}
 
 /** Prefijos a invalidar tras cambiar el catalogo o su stock (D6). */
 function useInvalidarCatalogo(): () => Promise<void> {

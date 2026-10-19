@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import type { UseMutationResult, UseQueryResult } from "@tanstack/react-query";
 import { apiFetch } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
-import type { Cliente, ClienteInput, Paginated, VentaResumen } from "@/shared/api/types";
+import type { Cliente, ClienteInput, Mascota, MascotaInput, Paginated, VentaResumen } from "@/shared/api/types";
 
 export const PAGE_SIZE = 20;
 
@@ -64,6 +64,45 @@ export function useEditarCliente(): UseMutationResult<Cliente, Error, { id: stri
   const invalidar = useInvalidarClientes();
   return useMutation({
     mutationFn: ({ id, body }) => apiFetch<Cliente>(`/clientes/${id}`, { method: "PUT", body }),
+    onSuccess: invalidar,
+  });
+}
+
+/** Mascotas activas del cliente (lista simple, sin paginar). */
+export function useMascotas(clienteId: string): UseQueryResult<Mascota[]> {
+  return useQuery({
+    queryKey: queryKeys.clientes.mascotas(clienteId),
+    queryFn: ({ signal }) => apiFetch<Mascota[]>(`/clientes/${clienteId}/mascotas`, { signal }),
+  });
+}
+
+function useInvalidarMascotas(clienteId: string): () => Promise<void> {
+  const qc = useQueryClient();
+  return () => qc.invalidateQueries({ queryKey: queryKeys.clientes.mascotas(clienteId) });
+}
+
+export function useCrearMascota(clienteId: string): UseMutationResult<Mascota, Error, MascotaInput> {
+  const invalidar = useInvalidarMascotas(clienteId);
+  return useMutation({
+    mutationFn: (body) => apiFetch<Mascota>(`/clientes/${clienteId}/mascotas`, { method: "POST", body }),
+    onSuccess: invalidar,
+  });
+}
+
+export function useEditarMascota(
+  clienteId: string,
+): UseMutationResult<Mascota, Error, { id: string; body: MascotaInput }> {
+  const invalidar = useInvalidarMascotas(clienteId);
+  return useMutation({
+    mutationFn: ({ id, body }) => apiFetch<Mascota>(`/clientes/${clienteId}/mascotas/${id}`, { method: "PUT", body }),
+    onSuccess: invalidar,
+  });
+}
+
+export function useBajaMascota(clienteId: string): UseMutationResult<undefined, Error, string> {
+  const invalidar = useInvalidarMascotas(clienteId);
+  return useMutation({
+    mutationFn: (id) => apiFetch<undefined>(`/clientes/${clienteId}/mascotas/${id}`, { method: "DELETE" }),
     onSuccess: invalidar,
   });
 }

@@ -62,6 +62,7 @@
 
 ### US-007 — Registro de clientes
 **Como** mostrador **Quiero** crear/buscar cliente en la venta **Para** historial básico.
+- Un cliente puede tener varias mascotas (nombre + tipo perro/gato/otro). Al crear un cliente desde `/clientes` se puede cargar una mascota opcional (cliente y mascota se guardan juntos); el alta inline del POS pide solo el nombre. Las mascotas se agregan/editan/bajan desde la ficha (editar/baja: dueña). Un cliente dado de baja se ve en modo solo lectura.
 
 ### US-008 — Configurar márgenes y mínimos
 **Como** dueña **Quiero** editar margen y mínimo por producto **Para** aplicar RN-PR-02 y RN-ST-02.

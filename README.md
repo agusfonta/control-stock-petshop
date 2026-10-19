@@ -62,6 +62,7 @@ pip install -r backend/requirements.txt -r backend/requirements-dev.txt   # -dev
 # 2) Variables de entorno (valores de prueba SOLO para desarrollo local; nunca usarlos en producción)
 $env:ENV = "dev"
 $env:DATABASE_URL = "sqlite:///./dev.db"
+$env:SECRET_KEY = "dev-only-secret-key-not-for-production"
 $env:REDIS_URL = "memory://"
 $env:CORS_ORIGINS = "http://localhost:5173"
 $env:SEED_OWNER_PASSWORD = "demo-duena-2026"
@@ -165,6 +166,7 @@ Variable de entorno opcional que define el costo (rounds) de bcrypt al hashear c
 - **Puerto 8000 o 5173 ocupado:** cerrá el proceso que lo usa (probablemente otro `uvicorn` o `vite` viejo) y reintentá. Si cambiás el puerto de la API, ajustá `VITE_PROXY_TARGET` del frontend.
 - **Postgres del sistema:** el Postgres instalado en tu máquina (por ejemplo la versión 17) no se usa. El de Docker se publica en el puerto **5433** justamente para no pisarlo; para conectarte con un cliente SQL usá `postgresql://petshop:petshop@localhost:5433/petshop`.
 - **`REDIS_URL=memory://`** (Redis en memoria) solo se acepta con `ENV=dev` o `ENV=test`; en cualquier otro entorno la API se niega a arrancar. Tampoco hay datos compartidos entre procesos ni persistencia.
+- **La API o un script falla con "Field required":** `ENV`, `SECRET_KEY` y `DATABASE_URL` no tienen valor por defecto; definilas explícitamente (ver el paso 2 de la Opción B). `tests/conftest.py` fija valores de prueba para la suite.
 - **`seed_demo` dice "Faltan variables de entorno":** definí `SEED_OWNER_PASSWORD` y `SEED_MOSTRADOR_PASSWORD` en la misma terminal (no hay valores por defecto).
 - **Cerrar sesión:** el backend todavía no tiene un endpoint de logout; el frontend cierra la sesión borrando el token local y la pista de sesión.
 - **Cambios en archivos no se reflejan en Docker sobre Windows:** el frontend ya usa polling (`VITE_USE_POLLING=true`); si aún así no recarga, reiniciá el servicio con `docker compose restart frontend`.
@@ -174,7 +176,7 @@ Variable de entorno opcional que define el costo (rounds) de bcrypt al hashear c
 ### La app
 
 ```
-backend/            API FastAPI (app/), migraciones (alembic/), scripts (scripts/: init_db, seed, seed_demo, importar_productos, generar_excel_prueba), tests/
+backend/            API FastAPI (app/modules/<dominio>/: models, schemas, service, router; app/core/ transversal), migraciones (alembic/), scripts (scripts/: init_db, seed, seed_demo, importar_productos, generar_excel_prueba), tests/<dominio>/
 frontend/           App React + TypeScript (src/), tests con Vitest
 docker-compose.yml  Entorno local completo (db, redis, api, frontend)
 ```

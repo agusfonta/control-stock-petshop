@@ -40,7 +40,7 @@ def utc(*args) -> datetime:
 
 def fijar_ahora(monkeypatch, instante_utc: datetime) -> None:
     """Fija el reloj del servicio de reportes: hoy() se deriva de este instante."""
-    from app.services import reportes
+    from app.modules.reportes import service as reportes
 
     monkeypatch.setattr(reportes, "_ahora_utc", lambda: instante_utc)
 
@@ -49,7 +49,7 @@ def fijar_confirmada_at(db_session_factory, venta_id: str, instante_utc: datetim
     """Mueve la confirmacion de una venta a `instante_utc` (UPDATE directo)."""
     from sqlalchemy import update
 
-    from app.models import Venta
+    from app.modules.ventas.models import Venta
 
     with db_session_factory() as session:
         session.execute(
@@ -93,7 +93,7 @@ def insertar_venta_confirmada(
     """
     from decimal import Decimal
 
-    from app.models import LineaVenta, PagoVenta, Venta
+    from app.modules.ventas.models import LineaVenta, PagoVenta, Venta
 
     total = sum((Decimal(str(c)) * Decimal(str(p)) for _, c, p, _ in lineas), Decimal(0))
     with db_session_factory() as session:

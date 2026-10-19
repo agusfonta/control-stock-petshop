@@ -203,6 +203,20 @@ export interface ClienteInput {
   telefono?: string | null;
   email?: string | null;
   direccion?: string | null;
+  /** Solo en el alta: crea la mascota junto con el cliente. */
+  mascota?: MascotaInput;
+}
+
+export type TipoMascota = "perro" | "gato" | "otro";
+export interface Mascota {
+  id: string;
+  nombre: string;
+  tipo: TipoMascota;
+  activo: boolean;
+}
+export interface MascotaInput {
+  nombre: string;
+  tipo: TipoMascota;
 }
 
 // Ventas

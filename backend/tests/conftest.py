@@ -5,7 +5,11 @@ Ninguna credencial real: usuarios seed con passwords `test-only-*`.
 
 import os
 
-# Antes de importar `app`: bcrypt al minimo (4 rounds) solo para la suite.
+# Antes de importar `app`: ENV/SECRET_KEY/DATABASE_URL no tienen default en
+# Settings, asi que la suite los fija; y bcrypt al minimo (4 rounds).
+os.environ.setdefault("ENV", "test")
+os.environ.setdefault("SECRET_KEY", "test-only-secret-key-not-for-production")
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("BCRYPT_ROUNDS", "4")
 
 import httpx  # noqa: E402
@@ -25,7 +29,7 @@ INACTIVO_PASSWORD = "test-only-inactivo-password"
 
 @pytest.fixture
 def db_session_factory():
-    from app.models import Base
+    from app.modules.models import Base
 
     engine = create_engine(
         "sqlite:///:memory:",
@@ -39,7 +43,7 @@ def db_session_factory():
 @pytest.fixture
 def seed_users(db_session_factory):
     from app.core.security import hash_password
-    from app.models import Usuario
+    from app.modules.auth.models import Usuario
 
     with db_session_factory() as session:
         session.add(

@@ -19,6 +19,7 @@ export const queryKeys = {
     buscar: (q: string) => ["clientes", "buscar", q] as const,
     detail: (id: string) => ["clientes", "detail", id] as const,
     historial: (id: string, params?: Params) => ["clientes", "historial", id, params ?? {}] as const,
+    mascotas: (id: string) => ["clientes", "mascotas", id] as const,
   },
   distribuidoras: {
     all: ["distribuidoras"] as const,

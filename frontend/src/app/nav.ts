@@ -3,7 +3,6 @@ import {
   CalendarDays,
   ClipboardList,
   type LucideIcon,
-  Package,
   PackagePlus,
   Percent,
   Receipt,
@@ -43,8 +42,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Inventario",
     items: [
-      { label: "Productos", to: "/productos", icon: Package },
-      { label: "Stock", to: "/stock", icon: Boxes, alertas: true },
+      { label: "Productos y stock", to: "/productos", icon: Boxes, alertas: true },
     ],
   },
   {

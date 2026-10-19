@@ -46,6 +46,10 @@ Fuente de verdad del dominio. Leer antes de proponer o implementar:
 
 > Los compact rules de cada skill los resuelve el orquestador desde `.atl/skill-registry.md` (generado por `skill-registry`; no versionado — no está en el repo).
 
+## Estructura del backend
+
+`backend/app/modules/<dominio>/` (`models.py`, `schemas.py`, `service.py`, `router.py`) por dominio: health, auth, productos, stock, distribuidoras, compras, clientes, ventas, reportes, migracion. Transversal en `app/core/`; `app/modules/models.py` agrega todos los modelos (lo importan alembic, init_db, conftest y main). Tests en `backend/tests/<dominio>/`. Un módulo no importa el router de otro.
+
 ## Roadmap de Changes
 
 `CHANGES.md`: 15 changes en 5 fases (F0 cimientos → F4 producción). Camino crítico: C-01 → C-02 → C-03 → C-04 → C-05 → C-10 → C-11 → C-13 → C-15. Primer change: `C-01-foundation-setup` → `/opsx:propose C-01-foundation-setup`.

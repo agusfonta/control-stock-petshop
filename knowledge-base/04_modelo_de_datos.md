@@ -14,7 +14,7 @@
 Distribuidora 1—N ListaPrecio N—1 Producto 1—N MovimientoStock
 Producto 1—N LineaVenta N—1 Venta 1—N PagoVenta
 Distribuidora 1—N PedidoCompra 1—N EntradaStock N—1 Producto
-Cliente 1—N Venta | Usuario N—N Rol
+Cliente 1—N Venta | Cliente 1—N Mascota | Usuario N—N Rol
 Venta 1—1 ComprobanteFE
 ```
 
@@ -50,7 +50,10 @@ Venta 1—1 ComprobanteFE
 - Pago: distribuidora_id, monto, método, fecha.
 
 ### Cliente
-- nombre, teléfono, email, dirección, saldo_cc. 1—N ventas.
+- nombre, teléfono, email, dirección, saldo_cc. 1—N ventas, 1—N mascotas.
+
+### Mascota (C-17)
+- id, cliente_id (FK clientes), nombre (máx. 100), tipo (perro/gato/otro, check en BD), activo (baja lógica), created_at/updated_at. Tabla `mascotas`, migración 0010.
 
 ### Usuario
 - email (unique), hash, rol (dueña/mostrador), activo.
