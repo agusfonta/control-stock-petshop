@@ -62,12 +62,14 @@ function campoDesdeLoc(loc: unknown): string | null {
   return partes.length > 0 ? partes.join(".") : null;
 }
 
+const PREFIJO_PYDANTIC = /^Value error, /;
+
 function erroresDeCampo(detail: unknown[]): Record<string, string> {
   const campos: Record<string, string> = {};
   for (const item of detail) {
     if (!isRecord(item) || typeof item.msg !== "string") continue;
     const campo = campoDesdeLoc(item.loc);
-    if (campo !== null && !(campo in campos)) campos[campo] = item.msg;
+    if (campo !== null && !(campo in campos)) campos[campo] = item.msg.replace(PREFIJO_PYDANTIC, "");
   }
   return campos;
 }

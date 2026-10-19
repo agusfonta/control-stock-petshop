@@ -29,6 +29,20 @@ describe("parseApiError", () => {
     expect(err.message).toBe("Revisá los datos ingresados");
   });
 
+  it('quita el prefijo técnico "Value error, " de los mensajes 422', () => {
+    const err = parseApiError(422, {
+      detail: [
+        { loc: ["body", "telefono"], msg: "Value error, telefono invalido", type: "value_error" },
+        { loc: ["body", "email"], msg: "no toca un value error en medio", type: "x" },
+      ],
+    });
+
+    expect(err.fieldErrors).toEqual({
+      telefono: "telefono invalido",
+      email: "no toca un value error en medio",
+    });
+  });
+
   it("extrae faltantes del objeto detail de un 409 de stock", () => {
     const faltantes = [{ producto_id: "p1", solicitado: 5, disponible: 2 }];
 

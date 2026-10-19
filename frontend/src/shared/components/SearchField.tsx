@@ -10,11 +10,13 @@ interface SearchFieldProps {
   /** Nombre accesible (no hay label visible). */
   label: string;
   placeholder?: string;
+  /** Tope de caracteres del texto buscado. */
+  maxLength?: number;
   className?: string;
 }
 
 /** Buscador de listados con icono y boton "Limpiar" (UX7). */
-export function SearchField({ value, onChange, label, placeholder, className }: SearchFieldProps): ReactElement {
+export function SearchField({ value, onChange, label, placeholder, maxLength, className }: SearchFieldProps): ReactElement {
   return (
     <div className={cn("relative w-full sm:max-w-sm", className)}>
       <Search
@@ -26,6 +28,7 @@ export function SearchField({ value, onChange, label, placeholder, className }: 
         role="searchbox"
         aria-label={label}
         placeholder={placeholder}
+        maxLength={maxLength}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoComplete="off"

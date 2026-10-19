@@ -38,6 +38,14 @@ export function ClientesPage(): ReactElement {
     setPage(1);
   }, [q]);
 
+  // Pagina fuera de rango (p. ej. tras dar de baja al ultimo de la ultima pagina): volver a la ultima con datos.
+  const total = clientes.data?.total ?? 0;
+  const vacioFueraDeRango =
+    !clientes.isLoading && clientes.data !== undefined && clientes.data.items.length === 0 && total > 0 && page > 1;
+  useEffect(() => {
+    if (vacioFueraDeRango) setPage(Math.max(1, Math.ceil(total / PAGE_SIZE)));
+  }, [vacioFueraDeRango, total]);
+
   async function confirmarBaja(): Promise<void> {
     if (baja === null) return;
     try {
@@ -110,6 +118,7 @@ export function ClientesPage(): ReactElement {
           onChange={setBusqueda}
           label="Buscar clientes"
           placeholder="Buscar por nombre, email o teléfono"
+          maxLength={100}
         />
         {clientes.isError && clientes.data === undefined ? (
           <ErrorState title="No pudimos cargar los clientes" onRetry={() => void clientes.refetch()} />
@@ -132,7 +141,7 @@ export function ClientesPage(): ReactElement {
                 action={hayBusqueda ? undefined : nuevo}
               />
             }
-            pagination={{ page, pageSize: PAGE_SIZE, total: clientes.data?.total ?? 0, onPageChange: setPage }}
+            pagination={{ page, pageSize: PAGE_SIZE, total, onPageChange: setPage }}
           />
         )}
       </div>

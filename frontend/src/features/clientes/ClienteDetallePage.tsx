@@ -1,11 +1,12 @@
 import { ArrowLeft, Mail, MapPin, Pencil, Phone, Receipt } from "lucide-react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClienteSheet } from "@/features/clientes/ClienteSheet";
+import { MascotasSection } from "@/features/clientes/MascotasSection";
 import { PAGE_SIZE, useCliente, useHistorialCliente } from "@/features/clientes/api";
 import { formatFechaHora } from "@/features/clientes/format";
 import { ApiError } from "@/shared/api/errors";
@@ -69,6 +70,19 @@ export function ClienteDetallePage(): ReactElement {
   const cliente = useCliente(id);
   const historial = useHistorialCliente(id, page);
 
+  // Otro cliente -> primera pagina del historial.
+  useEffect(() => {
+    setPage(1);
+  }, [id]);
+
+  // Pagina fuera de rango (queda vacia pero hay resultados): volver a la ultima con datos.
+  const totalHistorial = historial.data?.total ?? 0;
+  const vacioFueraDeRango =
+    !historial.isLoading && historial.data !== undefined && historial.data.items.length === 0 && totalHistorial > 0 && page > 1;
+  useEffect(() => {
+    if (vacioFueraDeRango) setPage(Math.max(1, Math.ceil(totalHistorial / PAGE_SIZE)));
+  }, [vacioFueraDeRango, totalHistorial]);
+
   const volver = (
     <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
       <Link to="/clientes">
@@ -92,7 +106,7 @@ export function ClienteDetallePage(): ReactElement {
       <>
         {volver}
         {noExiste ? (
-          <EmptyState title="No encontramos al cliente" description="Puede que haya sido dado de baja o que el enlace sea incorrecto." />
+          <EmptyState title="No encontramos al cliente" description="El cliente no existe o el enlace es incorrecto" />
         ) : (
           <ErrorState title="No pudimos cargar el cliente" onRetry={() => void cliente.refetch()} />
         )}
@@ -108,7 +122,7 @@ export function ClienteDetallePage(): ReactElement {
         title={c.nombre}
         description={c.activo ? undefined : "Cliente dado de baja"}
         actions={
-          puedeEditar ? (
+          puedeEditar && c.activo ? (
             <Button type="button" variant="outline" onClick={() => setEditando(true)}>
               <Pencil aria-hidden="true" /> Editar
             </Button>
@@ -125,6 +139,7 @@ export function ClienteDetallePage(): ReactElement {
             </ul>
           </CardContent>
         </Card>
+        <MascotasSection clienteId={id} activo={c.activo} />
         <section aria-labelledby="historial-titulo" className="space-y-3">
           <h2 id="historial-titulo" className="text-lg font-semibold">
             Historial de ventas
