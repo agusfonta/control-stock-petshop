@@ -32,14 +32,14 @@ export function CheckoutSheet({ open, onOpenChange, onSuccess, onCloseAutoFocus 
           // Teclado primero: el foco va a "Paga con" (o al primer monto) para cobrar sin mouse.
           e.preventDefault();
           const campo =
-            contentRef.current?.querySelector<HTMLInputElement>("#paga-con:not(:disabled)") ??
+            contentRef.current?.querySelector<HTMLInputElement>("[data-paga-con]:not(:disabled)") ??
             contentRef.current?.querySelector<HTMLInputElement>("input:not(:disabled)");
           campo?.focus();
         }}
       >
         <SheetHeader>
           <SheetTitle className="text-xl">Cobrar</SheetTitle>
-          <SheetDescription>Elegí cómo paga el cliente. Podés dividir el total en hasta 5 pagos.</SheetDescription>
+          <SheetDescription>Elegí cómo paga el cliente. Podés dividir el total entre hasta 3 medios, uno de cada tipo.</SheetDescription>
         </SheetHeader>
         <CheckoutForm key={apertura} onCerrar={() => onOpenChange(false)} onSuccess={onSuccess} />
       </SheetContent>

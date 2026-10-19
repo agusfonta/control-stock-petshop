@@ -2,12 +2,18 @@ import { CircleAlert, Loader2, Plus } from "lucide-react";
 import { type FormEvent, type ReactElement, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { cartSignature, totalCents } from "@/features/pos/cart";
 import { PagoRowEditor } from "@/features/pos/PagoRowEditor";
-import { type PagoRow, centsToInput, nuevoRowId, rowsToDrafts, siguienteMedio } from "@/features/pos/pagoRows";
-import { MAX_PAGOS, canConfirm, parseMontoInput, quickCashOptions, remainingCents, vueltoCents } from "@/features/pos/payments";
+import { type PagoRow, centsToInput, nuevoRowId, siguienteMedio } from "@/features/pos/pagoRows";
+import {
+  MEDIOS_PAGO,
+  type PagoDraft,
+  canConfirm,
+  parseMontoInput,
+  remainingCents,
+  vueltoCents,
+} from "@/features/pos/payments";
 import { useCartStore } from "@/features/pos/useCartStore";
 import { useCheckout } from "@/features/pos/useCheckout";
 import type { Venta } from "@/shared/api/types";
@@ -21,6 +27,23 @@ interface CheckoutFormProps {
 
 function filaEfectivo(cents: number): PagoRow {
   return { id: nuevoRowId(), metodo: "efectivo", texto: centsToInput(cents) };
+}
+
+/** Un pago por medio: no hay mas filas que medios. */
+const MAX_FILAS = MEDIOS_PAGO.length;
+
+/**
+ * Los montos que se envian. Los medios que no son efectivo salen de lo tipeado; el efectivo NO se tipea:
+ * es lo que resta del total (nunca negativo), asi la suma cuadra y "Paga con" solo sirve para el vuelto.
+ */
+function filasADrafts(rows: readonly PagoRow[], total: number): PagoDraft[] {
+  const otros = rows.reduce((acc, r) => (r.metodo === "efectivo" ? acc : acc + (parseMontoInput(r.texto) ?? 0)), 0);
+  const efectivo = Math.max(0, total - otros);
+  return rows.map((r) => ({
+    id: r.id,
+    metodo: r.metodo,
+    montoCents: r.metodo === "efectivo" ? efectivo : (parseMontoInput(r.texto) ?? 0),
+  }));
 }
 
 /** Si quedo un cobro a medias con el mismo carrito (corte de red), se restaura para reintentarlo igual. */
@@ -48,24 +71,37 @@ export function CheckoutForm({ onCerrar, onSuccess }: CheckoutFormProps): ReactE
   const [error, setError] = useState<string | null>(null);
   const { enviando, cobrar } = useCheckout();
 
-  const drafts = rowsToDrafts(rows);
+  const drafts = filasADrafts(rows, total);
   const falta = remainingCents(total, drafts);
   const puedeConfirmar = canConfirm(total, drafts);
-  const efectivo = drafts.filter((d) => d.metodo === "efectivo").reduce((acc, d) => acc + d.montoCents, 0);
   const hayEfectivo = rows.some((r) => r.metodo === "efectivo");
+  const efectivoCents = drafts.find((d) => d.metodo === "efectivo")?.montoCents ?? 0;
   const pagaConCents = parseMontoInput(pagaCon);
-  const vuelto = pagaConCents === null ? 0 : vueltoCents(pagaConCents, efectivo);
+  // Vuelto (informativo): solo sobre el efectivo y solo si la persona informo con cuanto paga.
+  const vuelto = pagaConCents === null ? 0 : vueltoCents(pagaConCents, efectivoCents);
 
   function editar(id: string, patch: Partial<Omit<PagoRow, "id">>): void {
     setError(null);
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    let cambios = patch;
+    if (patch.metodo !== undefined && rows.find((r) => r.id === id)?.metodo === "efectivo") {
+      // Al dejar de ser efectivo, "Paga con" se descarta y el medio nuevo hereda el monto derivado.
+      setPagaCon("");
+      cambios = { ...patch, texto: efectivoCents > 0 ? centsToInput(efectivoCents) : "" };
+    }
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...cambios } : r)));
+  }
+
+  function quitar(id: string): void {
+    if (rows.find((r) => r.id === id)?.metodo === "efectivo") setPagaCon("");
+    setRows((prev) => prev.filter((r) => r.id !== id));
   }
 
   function agregarMedio(): void {
-    setRows((prev) => [
-      ...prev,
-      { id: nuevoRowId(), metodo: siguienteMedio(prev), texto: falta > 0 ? centsToInput(falta) : "" },
-    ]);
+    // Con efectivo en juego: lo que "Paga con" no cubre del total (vacio si no esta informado o ya cubre todo).
+    // Sin efectivo: lo que falta.
+    const restante = hayEfectivo ? (pagaConCents === null ? 0 : total - pagaConCents) : falta;
+    const sugerido = restante > 0 ? centsToInput(restante) : "";
+    setRows((prev) => [...prev, { id: nuevoRowId(), metodo: siguienteMedio(prev), texto: sugerido }]);
   }
 
   async function enviar(e: FormEvent): Promise<void> {
@@ -74,7 +110,7 @@ export function CheckoutForm({ onCerrar, onSuccess }: CheckoutFormProps): ReactE
     const res = await cobrar(drafts, { reintento });
     if (res === null) return;
     if (res.tipo === "ok") {
-      const conVuelto = pagaConCents !== null && vuelto > 0 ? vuelto : null;
+      const conVuelto = vuelto > 0 ? vuelto : null;
       const clienteNombre = useCartStore.getState().cliente?.nombre ?? null;
       useCartStore.getState().clear();
       notifySuccess("Venta registrada");
@@ -109,10 +145,15 @@ export function CheckoutForm({ onCerrar, onSuccess }: CheckoutFormProps): ReactE
             row={row}
             disabled={enviando || reintento}
             puedeQuitar={rows.length > 1}
+            mediosUsados={rows.filter((r) => r.id !== row.id).map((r) => r.metodo)}
             faltaCents={falta}
+            efectivoCents={efectivoCents}
+            pagaCon={pagaCon}
+            vueltoCents={vuelto}
+            onPagaConChange={setPagaCon}
             onChange={(patch) => editar(row.id, patch)}
             onCompletar={() => editar(row.id, { texto: centsToInput((parseMontoInput(row.texto) ?? 0) + falta) })}
-            onQuitar={() => setRows((prev) => prev.filter((r) => r.id !== row.id))}
+            onQuitar={() => quitar(row.id)}
           />
         ))}
 
@@ -120,7 +161,7 @@ export function CheckoutForm({ onCerrar, onSuccess }: CheckoutFormProps): ReactE
           type="button"
           variant="outline"
           className="h-11 w-full"
-          disabled={rows.length >= MAX_PAGOS || enviando || reintento}
+          disabled={rows.length >= MAX_FILAS || enviando || reintento}
           onClick={agregarMedio}
         >
           <Plus aria-hidden="true" />
@@ -143,48 +184,6 @@ export function CheckoutForm({ onCerrar, onSuccess }: CheckoutFormProps): ReactE
           )}
           {falta === 0 && "El pago cubre el total"}
         </p>
-
-        {hayEfectivo && efectivo > 0 && (
-          <div className="space-y-2 rounded-xl border bg-card p-3">
-            <label htmlFor="paga-con" className="text-sm font-medium">
-              Paga con
-            </label>
-            <Input
-              id="paga-con"
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              disabled={enviando || reintento}
-              value={pagaCon}
-              onChange={(e) => setPagaCon(e.target.value)}
-              placeholder={formatARS(efectivo)}
-              className="h-12 text-right text-lg font-semibold tabular-nums"
-            />
-            <div className="flex flex-wrap gap-2">
-              {quickCashOptions(efectivo).map((c) => (
-                <Button
-                  key={c}
-                  type="button"
-                  variant="secondary"
-                  className="h-11 flex-1 tabular-nums"
-                  disabled={enviando || reintento}
-                  onClick={() => setPagaCon(centsToInput(c))}
-                >
-                  {formatARS(c)}
-                </Button>
-              ))}
-            </div>
-            {pagaConCents !== null && vuelto > 0 && (
-              <div className="rounded-lg bg-success/10 px-3 py-2 text-success">
-                <p className="text-sm font-medium">Vuelto</p>
-                <p className="text-3xl font-bold tabular-nums">{formatARS(vuelto)}</p>
-              </div>
-            )}
-            {pagaConCents !== null && pagaConCents < efectivo && (
-              <p className="text-sm text-warning">Lo que recibís es menos que el efectivo a cobrar.</p>
-            )}
-          </div>
-        )}
 
         {error !== null && (
           <Alert variant="destructive">

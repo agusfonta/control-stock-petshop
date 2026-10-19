@@ -1,5 +1,8 @@
-import { screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { type ReactElement } from "react";
 import { act } from "react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
+import { RedirectPreservandoQuery } from "@/app/RedirectPreservandoQuery";
 import { delay, http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { PISTA_SESION, useSession } from "@/features/auth/session";
@@ -24,7 +27,7 @@ describe("guards de ruta", () => {
     await user.type(screen.getByLabelText("Contraseña"), "demo-duena-2026");
     await user.click(screen.getByRole("button", { name: "Ingresar" }));
 
-    expect(await screen.findByRole("heading", { name: "Stock", level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Productos y stock", level: 1 }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText(duena.email)).toBeInTheDocument();
     expect(screen.getByText("Dueña")).toBeInTheDocument();
   });
@@ -41,7 +44,7 @@ describe("guards de ruta", () => {
       http.get("/api/auth/me", () => HttpResponse.json(duena)),
     );
     renderApp({ route: "/stock", user: "loading" });
-    expect(await screen.findByRole("heading", { name: "Stock", level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Productos y stock", level: 1 }, { timeout: 5000 })).toBeInTheDocument();
   });
 
   it("mientras restaura la sesion muestra una pantalla de carga", async () => {
@@ -63,7 +66,7 @@ describe("guards de ruta", () => {
 
   it("la sesion expirada lleva a /login con el aviso", async () => {
     renderApp({ route: "/stock", user: duena });
-    expect(await screen.findByRole("heading", { name: "Stock", level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Productos y stock", level: 1 }, { timeout: 5000 })).toBeInTheDocument();
 
     act(() => {
       useSession.getState().expire();
@@ -104,5 +107,29 @@ describe("guards de ruta", () => {
     expect(screen.queryByText(/tu sesión expiró/i)).not.toBeInTheDocument();
     expect(window.localStorage.getItem(PISTA_SESION)).toBeNull();
     await waitFor(() => expect(useSession.getState().status).toBe("anonymous"));
+  });
+});
+
+describe("ruta antigua /stock", () => {
+  it("redirige a /productos y muestra la sección unificada", async () => {
+    renderApp({ route: "/stock", user: duena });
+    expect(await screen.findByRole("heading", { name: "Productos y stock", level: 1 }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^Productos y stock/ })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("RedirectPreservandoQuery conserva el query string al redirigir", () => {
+    function Ubicacion(): ReactElement {
+      const { pathname, search } = useLocation();
+      return <p data-testid="ubicacion">{`${pathname}${search}`}</p>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/stock?bajo_minimo=true"]}>
+        <Routes>
+          <Route path="stock" element={<RedirectPreservandoQuery to="/productos" />} />
+          <Route path="productos" element={<Ubicacion />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("ubicacion")).toHaveTextContent("/productos?bajo_minimo=true");
   });
 });

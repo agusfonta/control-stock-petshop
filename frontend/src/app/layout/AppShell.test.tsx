@@ -15,26 +15,27 @@ function itemDe(link: HTMLElement): HTMLElement {
 }
 
 describe("AppShell", () => {
-  it("muestra 3 en la entrada Stock cuando hay 3 alertas", async () => {
+  it("muestra 3 en la entrada Productos y stock cuando hay 3 alertas", async () => {
     renderApp({ route: "/pos", user: duena, alertas: 3 });
 
-    const stock = await screen.findByRole("link", { name: /^stock/i });
+    const stock = await screen.findByRole("link", { name: /^productos y stock/i });
     expect(await within(itemDe(stock)).findByText("3")).toBeInTheDocument();
   });
 
   it("no muestra badge cuando no hay alertas", async () => {
     renderApp({ route: "/pos", user: duena, alertas: 0 });
 
-    const stock = await screen.findByRole("link", { name: /^stock/i });
+    const stock = await screen.findByRole("link", { name: /^productos y stock/i });
     expect(within(itemDe(stock)).queryByText("0")).not.toBeInTheDocument();
   });
 
   it("dueña ve todas las entradas, incluidas las de reportes completos", async () => {
     renderApp({ route: "/pos", user: duena });
 
-    for (const nombre of ["POS", "Ventas", "Productos", "Stock", "Distribuidoras", "Pedidos", "Clientes", "Ventas del día", "Reposición", "Más vendidos", "Márgenes"]) {
+    for (const nombre of ["POS", "Ventas", "Productos y stock", "Distribuidoras", "Pedidos", "Clientes", "Ventas del día", "Reposición", "Más vendidos", "Márgenes"]) {
       expect(await screen.findByRole("link", { name: nombre })).toBeInTheDocument();
     }
+    expect(screen.queryByRole("link", { name: /^Stock/ })).not.toBeInTheDocument();
   });
 
   it("mostrador no ve las entradas exclusivas de dueña", async () => {
@@ -54,9 +55,9 @@ describe("AppShell", () => {
   });
 
   it("marca la entrada activa con aria-current", async () => {
-    renderApp({ route: "/stock", user: duena });
+    renderApp({ route: "/productos", user: duena });
 
-    expect(await screen.findByRole("link", { name: /^Stock/ })).toHaveAttribute("aria-current", "page");
+    expect(await screen.findByRole("link", { name: /^Productos y stock/ })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: /^POS/ })).not.toHaveAttribute("aria-current");
   });
 

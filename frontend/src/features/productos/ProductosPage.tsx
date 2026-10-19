@@ -1,4 +1,14 @@
-import { MoreHorizontal, PackagePlus, PackageSearch, Pencil, Percent, Trash2 } from "lucide-react";
+import {
+  CircleCheck,
+  MoreHorizontal,
+  PackagePlus,
+  PackageSearch,
+  Pencil,
+  Percent,
+  SlidersHorizontal,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { type ReactElement, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,13 +18,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Toggle } from "@/components/ui/toggle";
 import { MargenMinimoDialog } from "@/features/productos/MargenMinimoDialog";
 import { ProductoSheet } from "@/features/productos/ProductoSheet";
-import { PAGE_SIZE, useBajaProducto, useProductos } from "@/features/productos/api";
+import { useBajaProducto } from "@/features/productos/api";
 import { fraccionAMargenPct } from "@/features/productos/pricing";
+import { AjusteStockDialog } from "@/features/stock/AjusteStockDialog";
 import { StockBadge } from "@/features/stock/StockBadge";
+import { useAlertasStock, useStockBusqueda, useStockList } from "@/features/stock/api";
 import { ApiError } from "@/shared/api/errors";
-import type { Producto } from "@/shared/api/types";
+import type { StockItem } from "@/shared/api/types";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { DataTable, type DataTableColumn } from "@/shared/components/DataTable";
 import { EmptyState } from "@/shared/components/EmptyState";
@@ -26,21 +39,33 @@ import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useCan } from "@/shared/lib/permissions";
 import { notifyError, notifySuccess } from "@/shared/lib/toast";
 
-/** Catalogo: la dueña edita; el mostrador solo consulta precio y stock (UX11). */
+const PAGE_SIZE = 20;
+
+/** Productos y stock en una sola tabla: la dueña edita y ajusta; el mostrador solo consulta (UX7, UX11). */
 export function ProductosPage(): ReactElement {
   const puedeEditar = useCan("productos.editar");
   const [busqueda, setBusqueda] = useState("");
   const q = useDebouncedValue(busqueda.trim(), 250);
+  const [soloBajo, setSoloBajo] = useState(false);
   const [page, setPage] = useState(1);
-  const [sheet, setSheet] = useState<{ producto: Producto | null } | null>(null);
-  const [rapido, setRapido] = useState<Producto | null>(null);
-  const [baja, setBaja] = useState<Producto | null>(null);
-  const productos = useProductos({ page, q });
+  const [sheet, setSheet] = useState<{ producto: StockItem | null } | null>(null);
+  const [rapido, setRapido] = useState<StockItem | null>(null);
+  const [baja, setBaja] = useState<StockItem | null>(null);
+  const [ajustando, setAjustando] = useState<StockItem | null>(null);
+  const buscando = q !== "";
+
+  const lista = useStockList({ page, soloBajoMinimo: soloBajo });
+  const resultados = useStockBusqueda(q);
+  const alertas = useAlertasStock();
   const bajaMutation = useBajaProducto();
 
   useEffect(() => {
     setPage(1);
-  }, [q]);
+  }, [q, soloBajo]);
+
+  const activa = buscando ? resultados : lista;
+  const filas = buscando ? resultados.data?.items.filter((p) => !soloBajo || p.bajo_minimo) : lista.data?.items;
+  const bajoMinimo = alertas.data?.total_bajo_minimo;
 
   async function confirmarBaja(): Promise<void> {
     if (baja === null) return;
@@ -54,7 +79,7 @@ export function ProductosPage(): ReactElement {
     }
   }
 
-  const columnas: DataTableColumn<Producto>[] = [
+  const columnas: DataTableColumn<StockItem>[] = [
     { id: "sku", header: "SKU", cell: (p) => <span className="font-mono text-xs">{p.sku}</span> },
     {
       id: "nombre",
@@ -91,14 +116,19 @@ export function ProductosPage(): ReactElement {
       id: "stock",
       header: "Stock",
       align: "right",
-      cell: (p) => (
-        <div className="flex items-center justify-end gap-2">
-          <StockBadge stockActual={p.stock_actual} stockMinimo={p.stock_minimo} />
-          <span className="tabular-nums">{p.stock_actual}</span>
-        </div>
-      ),
+      cell: (p) => <span className="text-base font-semibold tabular-nums">{p.stock_actual}</span>,
     },
     { id: "minimo", header: "Mínimo", align: "right", cell: (p) => <span className="tabular-nums">{p.stock_minimo}</span> },
+    {
+      id: "estado",
+      header: "Estado",
+      cell: (p) =>
+        p.bajo_minimo ? (
+          <StockBadge stockActual={p.stock_actual} stockMinimo={p.stock_minimo} />
+        ) : (
+          <span className="text-sm text-muted-foreground">Normal</span>
+        ),
+    },
   );
   if (puedeEditar) {
     columnas.push({
@@ -120,6 +150,9 @@ export function ProductosPage(): ReactElement {
             <DropdownMenuItem onSelect={() => setRapido(p)}>
               <Percent aria-hidden="true" /> Margen y mínimo
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setAjustando(p)}>
+              <SlidersHorizontal aria-hidden="true" /> Ajustar stock
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => setBaja(p)}>
               <Trash2 aria-hidden="true" /> Dar de baja
@@ -130,16 +163,25 @@ export function ProductosPage(): ReactElement {
     });
   }
 
-  const hayBusqueda = q !== "";
   const vacio = (
     <EmptyState
-      icon={hayBusqueda ? PackageSearch : PackagePlus}
-      title={hayBusqueda ? "No encontramos productos" : "Todavía no hay productos"}
+      icon={buscando ? PackageSearch : soloBajo ? CircleCheck : PackagePlus}
+      title={
+        buscando
+          ? "No encontramos productos"
+          : soloBajo
+            ? "Todo el stock está por encima del mínimo"
+            : "Todavía no hay productos"
+      }
       description={
-        hayBusqueda ? `Ningún producto coincide con "${q}". Probá con otro SKU o nombre.` : "Cargá el primer producto del catálogo."
+        buscando
+          ? `Ningún producto coincide con "${q}"${soloBajo ? " bajo el mínimo" : ""}. Probá con otro SKU o nombre.`
+          : soloBajo
+            ? "No hay nada para reponer por ahora."
+            : "Cargá el primer producto del catálogo."
       }
       action={
-        puedeEditar && !hayBusqueda ? (
+        puedeEditar && !buscando && !soloBajo ? (
           <Button type="button" onClick={() => setSheet({ producto: null })}>
             <PackagePlus aria-hidden="true" /> Nuevo producto
           </Button>
@@ -151,8 +193,8 @@ export function ProductosPage(): ReactElement {
   return (
     <>
       <PageHeader
-        title="Productos"
-        description={puedeEditar ? "Catálogo, costos, márgenes y stock mínimo." : "Catálogo con precios y stock."}
+        title="Productos y stock"
+        description={puedeEditar ? "Catálogo, costos, márgenes y existencias." : "Catálogo con precios y stock."}
         actions={
           puedeEditar ? (
             <Button type="button" onClick={() => setSheet({ producto: null })}>
@@ -162,23 +204,66 @@ export function ProductosPage(): ReactElement {
         }
       />
       <div className="space-y-4">
-        <SearchField value={busqueda} onChange={setBusqueda} label="Buscar productos" placeholder="Buscar por SKU o nombre" />
-        {productos.isError && productos.data === undefined ? (
-          <ErrorState title="No pudimos cargar los productos" onRetry={() => void productos.refetch()} />
+        {bajoMinimo !== undefined && (
+          <div
+            className={
+              bajoMinimo > 0
+                ? "flex items-center gap-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-warning"
+                : "flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-muted-foreground"
+            }
+            role="status"
+          >
+            {bajoMinimo > 0 ? (
+              <TriangleAlert className="size-5" aria-hidden="true" />
+            ) : (
+              <CircleCheck className="size-5" aria-hidden="true" />
+            )}
+            <p className="text-sm font-medium">
+              {bajoMinimo === 0
+                ? "Ningún producto está bajo el mínimo."
+                : bajoMinimo === 1
+                  ? "1 producto bajo el mínimo."
+                  : `${bajoMinimo} productos bajo el mínimo.`}
+            </p>
+            {bajoMinimo > 0 && !soloBajo && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="ml-auto bg-background text-foreground"
+                onClick={() => setSoloBajo(true)}
+              >
+                Ver solo esos
+              </Button>
+            )}
+          </div>
+        )}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <SearchField value={busqueda} onChange={setBusqueda} label="Buscar productos" placeholder="Buscar por SKU o nombre" />
+          <Toggle
+            variant="outline"
+            pressed={soloBajo}
+            onPressedChange={setSoloBajo}
+            aria-label="Solo bajo mínimo"
+            className="h-10 gap-2 px-4"
+          >
+            <TriangleAlert aria-hidden="true" />
+            Solo bajo mínimo
+          </Toggle>
+        </div>
+        {activa.isError && activa.data === undefined ? (
+          <ErrorState title="No pudimos cargar los productos" onRetry={() => void activa.refetch()} />
         ) : (
           <DataTable
             label="Productos"
             columns={columnas}
-            rows={productos.data?.items}
+            rows={filas}
             getRowKey={(p) => p.id}
-            isLoading={productos.isLoading}
+            isLoading={activa.isLoading}
             empty={vacio}
-            pagination={{
-              page,
-              pageSize: PAGE_SIZE,
-              total: productos.data?.total ?? 0,
-              onPageChange: setPage,
-            }}
+            pagination={
+              buscando ? undefined : { page, pageSize: PAGE_SIZE, total: lista.data?.total ?? 0, onPageChange: setPage }
+            }
           />
         )}
       </div>
@@ -193,6 +278,12 @@ export function ProductosPage(): ReactElement {
         producto={rapido}
         onOpenChange={(open) => {
           if (!open) setRapido(null);
+        }}
+      />
+      <AjusteStockDialog
+        producto={ajustando}
+        onOpenChange={(open) => {
+          if (!open) setAjustando(null);
         }}
       />
       <ConfirmDialog

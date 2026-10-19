@@ -1,5 +1,6 @@
 import { type ReactElement, Suspense, lazy, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router";
+import { RedirectPreservandoQuery } from "@/app/RedirectPreservandoQuery";
 import { RequireAuth } from "@/app/guards/RequireAuth";
 import { RequireRole } from "@/app/guards/RequireRole";
 import { AppShell } from "@/app/layout/AppShell";
@@ -7,7 +8,6 @@ import { LoginPage } from "@/features/auth/LoginPage";
 import { useSession } from "@/features/auth/session";
 import { ClienteDetallePage } from "@/features/clientes/ClienteDetallePage";
 import { ClientesPage } from "@/features/clientes/ClientesPage";
-import { StockPage } from "@/features/stock/StockPage";
 import { PosPage } from "@/features/pos/PosPage";
 import { VentaDetallePage } from "@/features/ventas/VentaDetallePage";
 import { VentasPage } from "@/features/ventas/VentasPage";
@@ -92,7 +92,7 @@ export function AppRoutes(): ReactElement {
             <Route path="ventas" element={<VentasPage />} />
             <Route path="ventas/:id" element={<VentaDetallePage />} />
             <Route path="productos" element={<ProductosPage />} />
-            <Route path="stock" element={<StockPage />} />
+            <Route path="stock" element={<RedirectPreservandoQuery to="/productos" />} />
             <Route path="clientes" element={<ClientesPage />} />
             <Route path="clientes/:id" element={<ClienteDetallePage />} />
             <Route path="distribuidoras" element={<DistribuidorasPage />} />
