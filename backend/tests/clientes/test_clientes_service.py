@@ -176,3 +176,43 @@ def test_desactivar_hace_soft_delete(db) -> None:
 def test_desactivar_inexistente_lanza_cliente_no_encontrado(db) -> None:
     with pytest.raises(service.ClienteNoEncontrado):
         service.desactivar_cliente(db, "no-existe")
+
+
+# --- C-18: alta atomica con mascota ---
+
+
+def test_crear_con_mascota_persiste_ambos(db) -> None:
+    from app.modules.clientes.models import Mascota
+    from app.modules.clientes.schemas import MascotaCreate
+
+    cliente = _crear(db, mascota=MascotaCreate(nombre="Firulais", tipo="perro"))
+
+    mascotas = db.query(Mascota).filter(Mascota.cliente_id == cliente.id).all()
+    assert [(m.nombre, m.tipo, m.activo) for m in mascotas] == [("Firulais", "perro", True)]
+    assert mascotas[0].created_at is not None
+
+
+def test_crear_sin_mascota_no_crea_mascotas(db) -> None:
+    from app.modules.clientes.models import Mascota
+
+    cliente = _crear(db)
+
+    assert db.query(Mascota).filter(Mascota.cliente_id == cliente.id).count() == 0
+
+
+def test_crear_con_mascota_si_falla_la_mascota_no_queda_el_cliente(db, monkeypatch) -> None:
+    from app.modules.clientes import service as svc
+    from app.modules.clientes.schemas import MascotaCreate
+
+    class Boom(Exception):
+        pass
+
+    def _falla(*args, **kwargs):
+        raise Boom
+
+    monkeypatch.setattr(svc, "Mascota", _falla)
+
+    with pytest.raises(Boom):
+        _crear(db, nombre="Fantasma", mascota=MascotaCreate(nombre="X", tipo="gato"))
+
+    assert db.query(Cliente).filter(Cliente.nombre == "Fantasma").count() == 0

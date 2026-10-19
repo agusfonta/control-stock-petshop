@@ -1,6 +1,7 @@
 """Schemas de clientes (C-09)."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import (
     BaseModel,
@@ -48,6 +49,25 @@ def _telefono_cliente(v: object) -> object:
     return normalizar_telefono(v) if isinstance(v, str) else v
 
 
+# --- C-17: tipo y alta de mascota (antes de ClienteCreate, que la anida en C-18) ---
+
+TipoMascota = Literal["perro", "gato", "otro"]
+
+
+class MascotaCreate(BaseModel):
+    """Alta de mascota (POST /api/clientes/{id}/mascotas)."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    nombre: str = Field(min_length=1, max_length=100)
+    tipo: TipoMascota
+
+    @field_validator("nombre", mode="before")
+    @classmethod
+    def _nombre(cls, v: object) -> object:
+        return _nombre_cliente(v)
+
+
 class ClienteCreate(BaseModel):
     """Alta de cliente (POST /api/clientes): solo `nombre` es obligatorio."""
 
@@ -57,6 +77,7 @@ class ClienteCreate(BaseModel):
     telefono: str | None = Field(default=None, max_length=21)
     email: str | None = Field(default=None, max_length=320, pattern=EMAIL_PATTERN)
     direccion: str | None = Field(default=None, max_length=300)
+    mascota: MascotaCreate | None = None
 
     @field_validator("nombre", mode="before")
     @classmethod
@@ -129,3 +150,37 @@ class ClienteListResponse(PaginacionResponse):
     """Envelope paginado de GET /api/clientes y /api/clientes/buscar."""
 
     items: list[ClienteResponse] = Field(default_factory=list)
+
+
+# --- C-17: mascotas de un cliente ---
+
+class MascotaUpdate(BaseModel):
+    """Actualizacion parcial (PUT); `nombre` no puede ser nulo."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    nombre: str | None = Field(default=None, min_length=1, max_length=100)
+    tipo: TipoMascota | None = None
+
+    @field_validator("nombre", mode="before")
+    @classmethod
+    def _nombre(cls, v: object) -> object:
+        return _nombre_cliente(v)
+
+    @field_validator("tipo", mode="before")
+    @classmethod
+    def _tipo(cls, v: object) -> object:
+        if v is None:
+            raise ValueError("tipo no puede ser nulo")
+        return v
+
+
+class MascotaResponse(BaseModel):
+    """Mascota expuesta via API."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    id: str = Field(min_length=1)
+    nombre: str
+    tipo: TipoMascota
+    activo: bool

@@ -8,7 +8,13 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from app.modules.clientes.schemas import ClienteCreate, ClienteListResponse, ClienteResponse, ClienteUpdate
+from app.modules.clientes.schemas import (
+    ClienteCreate,
+    ClienteListResponse,
+    ClienteResponse,
+    ClienteUpdate,
+    MascotaCreate,
+)
 
 # --- ClienteCreate ---
 
@@ -134,3 +140,44 @@ def test_response_rechaza_saldo_cc() -> None:
 def test_list_response_extiende_paginacion() -> None:
     lista = ClienteListResponse(total=0, page=1, page_size=20, total_pages=0)
     assert lista.items == []
+
+
+# --- C-18: mascota opcional en el alta ---
+
+
+def test_create_sin_mascota_por_defecto_es_none() -> None:
+    assert ClienteCreate(nombre="Ana").mascota is None
+
+
+def test_create_mascota_null_equivale_a_sin_mascota() -> None:
+    assert ClienteCreate.model_validate({"nombre": "Ana", "mascota": None}).mascota is None
+
+
+def test_create_con_mascota_valida_desde_dict_y_recorta_nombre() -> None:
+    cliente = ClienteCreate.model_validate({"nombre": "Ana", "mascota": {"nombre": "  Firulais ", "tipo": "perro"}})
+    assert isinstance(cliente.mascota, MascotaCreate)
+    assert (cliente.mascota.nombre, cliente.mascota.tipo) == ("Firulais", "perro")
+
+
+def test_create_con_mascota_valida_desde_json() -> None:
+    cliente = ClienteCreate.model_validate_json('{"nombre": "Ana", "mascota": {"nombre": "Mishi", "tipo": "gato"}}')
+    assert cliente.mascota is not None and cliente.mascota.tipo == "gato"
+
+
+@pytest.mark.parametrize(
+    "mascota",
+    [
+        {"nombre": "Rex", "tipo": "dragon"},
+        {"nombre": "   ", "tipo": "perro"},
+        {"nombre": "Rex"},
+        {"nombre": "Rex", "tipo": "perro", "edad": 3},
+    ],
+)
+def test_create_mascota_invalida_se_rechaza(mascota) -> None:
+    with pytest.raises(ValidationError):
+        ClienteCreate.model_validate({"nombre": "Ana", "mascota": mascota})
+
+
+def test_create_campo_desconocido_en_cliente_sigue_rechazado() -> None:
+    with pytest.raises(ValidationError):
+        ClienteCreate.model_validate({"nombre": "Ana", "mascotas": []})

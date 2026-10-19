@@ -441,3 +441,46 @@ async def test_editar_email_en_blanco_lo_borra_200(client) -> None:
     )
     assert response.status_code == 200
     assert response.json()["email"] is None
+
+
+# --- C-18: alta con mascota opcional ---
+
+
+async def test_alta_con_mascota_201_y_se_lista(client) -> None:
+    headers = await _mostrador(client)
+    response = await client.post(
+        CLIENTES_URL,
+        json=_cliente_payload(mascota={"nombre": " Firulais ", "tipo": "perro"}),
+        headers=headers,
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert "mascota" not in body
+    mascotas = await client.get(f"{CLIENTES_URL}/{body['id']}/mascotas", headers=headers)
+    assert [(m["nombre"], m["tipo"]) for m in mascotas.json()] == [("Firulais", "perro")]
+
+
+async def test_alta_con_mascota_null_201_sin_mascotas(client) -> None:
+    headers = await _duena(client)
+    response = await client.post(CLIENTES_URL, json=_cliente_payload(mascota=None), headers=headers)
+    assert response.status_code == 201
+    mascotas = await client.get(f"{CLIENTES_URL}/{response.json()['id']}/mascotas", headers=headers)
+    assert mascotas.json() == []
+
+
+async def test_alta_con_mascota_invalida_422_y_no_crea_cliente(client) -> None:
+    headers = await _duena(client)
+    response = await client.post(
+        CLIENTES_URL,
+        json=_cliente_payload(nombre="Sin Alta", mascota={"nombre": "Rex", "tipo": "dragon"}),
+        headers=headers,
+    )
+    assert response.status_code == 422
+    listado = await client.get(f"{CLIENTES_URL}?page_size=100", headers=headers)
+    assert all(c["nombre"] != "Sin Alta" for c in listado.json()["items"])
+
+
+async def test_alta_solo_nombre_como_el_pos_sigue_201(client) -> None:
+    headers = await _mostrador(client)
+    response = await client.post(CLIENTES_URL, json={"nombre": "Inline"}, headers=headers)
+    assert response.status_code == 201

@@ -41,14 +41,13 @@ def _sql_de(url: str, nombre: str) -> str | None:
         engine.dispose()
 
 
-def test_0009_es_hija_de_0008_y_cabeza() -> None:
+def test_0009_es_hija_de_0008() -> None:
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(cfg)
-    assert script.get_heads() == ["0009"]
     assert script.get_revision("0009").down_revision == "0008"
 
 

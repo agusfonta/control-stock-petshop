@@ -17,8 +17,16 @@ from sqlalchemy.orm import Session
 
 from app import deps
 from app.modules.clientes import service as svc
-from app.modules.clientes.models import Cliente
-from app.modules.clientes.schemas import ClienteCreate, ClienteListResponse, ClienteResponse, ClienteUpdate
+from app.modules.clientes.models import Cliente, Mascota
+from app.modules.clientes.schemas import (
+    ClienteCreate,
+    ClienteListResponse,
+    ClienteResponse,
+    ClienteUpdate,
+    MascotaCreate,
+    MascotaResponse,
+    MascotaUpdate,
+)
 from app.modules.ventas import service as ventas_svc
 from app.modules.ventas.schemas import VentaListResponse
 
@@ -41,10 +49,19 @@ def _to_response(cliente: Cliente) -> ClienteResponse:
     )
 
 
+def _mascota_response(mascota: Mascota) -> MascotaResponse:
+    """Serializa el ORM a MascotaResponse."""
+    return MascotaResponse(id=mascota.id, nombre=mascota.nombre, tipo=mascota.tipo, activo=mascota.activo)
+
+
 def _http_error(exc: svc.ClientesError) -> HTTPException:
     """Traduce un error de dominio a su HTTPException (mismo status y detail)."""
     if isinstance(exc, svc.ClienteNoEncontrado):
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="cliente no encontrado")
+    if isinstance(exc, svc.MascotaNoEncontrada):
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="mascota no encontrada")
+    if isinstance(exc, svc.ClienteInactivo):
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail="cliente dado de baja")
     if isinstance(exc, svc.EmailEnUso):
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail="email ya registrado")
     return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="q no puede estar en blanco")
@@ -177,5 +194,68 @@ def eliminar_cliente(
     _ = current
     try:
         svc.desactivar_cliente(db, cliente_id)
+    except svc.ClientesError as exc:
+        raise _http_error(exc) from None
+
+
+# --- C-17: mascotas del cliente (alta duena+mostrador; PUT/DELETE solo duena) ---
+
+
+@router.post("/{cliente_id}/mascotas", response_model=MascotaResponse, status_code=201)
+def crear_mascota(
+    cliente_id: str,
+    data: MascotaCreate,
+    db: Session = Depends(deps.get_db),
+    current: deps.Usuario = Depends(deps.require_role("duena", "mostrador")),
+) -> MascotaResponse:
+    """Crea una mascota del cliente (duena o mostrador)."""
+    _ = current
+    try:
+        return _mascota_response(svc.crear_mascota(db, cliente_id, data))
+    except svc.ClientesError as exc:
+        raise _http_error(exc) from None
+
+
+@router.get("/{cliente_id}/mascotas", response_model=list[MascotaResponse])
+def listar_mascotas(
+    cliente_id: str,
+    db: Session = Depends(deps.get_db),
+    current: deps.Usuario = Depends(deps.get_current_user),
+) -> list[MascotaResponse]:
+    """Mascotas activas del cliente, en orden de creacion (sin paginar)."""
+    _ = current
+    try:
+        return [_mascota_response(m) for m in svc.listar_mascotas(db, cliente_id)]
+    except svc.ClientesError as exc:
+        raise _http_error(exc) from None
+
+
+@router.put("/{cliente_id}/mascotas/{mascota_id}", response_model=MascotaResponse)
+def actualizar_mascota(
+    cliente_id: str,
+    mascota_id: str,
+    data: MascotaUpdate,
+    db: Session = Depends(deps.get_db),
+    current: deps.Usuario = Depends(deps.require_duena),
+) -> MascotaResponse:
+    """Actualiza parcialmente una mascota (solo duena)."""
+    _ = current
+    try:
+        return _mascota_response(svc.actualizar_mascota(db, cliente_id, mascota_id, data))
+    except svc.ClientesError as exc:
+        raise _http_error(exc) from None
+
+
+@router.delete("/{cliente_id}/mascotas/{mascota_id}", status_code=204)
+def eliminar_mascota(
+    cliente_id: str,
+    mascota_id: str,
+    db: Session = Depends(deps.get_db),
+    current: deps.Usuario = Depends(deps.require_duena),
+) -> None:
+    """Baja logica de la mascota (solo duena)."""
+    _ = current
+    try:
+        svc.desactivar_mascota(db, cliente_id, mascota_id)
     except svc.ClientesError as exc:
         raise _http_error(exc) from None
