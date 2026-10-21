@@ -198,6 +198,8 @@ export interface Cliente {
   created_at: string;
   updated_at: string;
 }
+/** Fila de `GET /clientes` y `/clientes/buscar`: el cliente con sus mascotas activas. */
+export type ClienteListItem = Cliente & { mascotas: Mascota[] };
 export interface ClienteInput {
   nombre: string;
   telefono?: string | null;
@@ -205,6 +207,8 @@ export interface ClienteInput {
   direccion?: string | null;
   /** Solo en el alta: crea la mascota junto con el cliente. */
   mascota?: MascotaInput;
+  /** Solo en la edicion: reemplazo total de las mascotas activas (con `id` actualiza, sin `id` crea, las ausentes se dan de baja). */
+  mascotas?: MascotaEdicionInput[];
 }
 
 export type TipoMascota = "perro" | "gato" | "otro";
@@ -217,6 +221,9 @@ export interface Mascota {
 export interface MascotaInput {
   nombre: string;
   tipo: TipoMascota;
+}
+interface MascotaEdicionInput extends MascotaInput {
+  id?: string;
 }
 
 // Ventas

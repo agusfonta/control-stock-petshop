@@ -1,3 +1,4 @@
+import { QueryClient } from "@tanstack/react-query";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import { Route, Routes } from "react-router";
@@ -6,8 +7,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { useSession } from "@/features/auth/session";
 import { ClienteDetallePage } from "@/features/clientes/ClienteDetallePage";
 import { ClientesPage } from "@/features/clientes/ClientesPage";
-import type { Cliente, Mascota, Me, VentaResumen } from "@/shared/api/types";
-import { duena, makeCliente, mostrador, paginated } from "@/test/fixtures";
+import type { Cliente, ClienteListItem, Mascota, Me, VentaResumen } from "@/shared/api/types";
+import { duena, makeCliente, makeClienteLista, mostrador, paginated } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/render";
 import { server } from "@/test/server";
 
@@ -16,7 +17,8 @@ function sesion(user: Me): void {
 }
 
 function mockClientes(inicial: Cliente[]): { creados: unknown[] } {
-  const lista = [...inicial];
+  // La lista del servidor siempre trae `mascotas` (vacio si no tiene).
+  const lista: ClienteListItem[] = inicial.map((c) => ({ mascotas: [], ...c }));
   const creados: unknown[] = [];
   server.use(
     http.get("/api/clientes", () => HttpResponse.json(paginated(lista))),
@@ -28,7 +30,7 @@ function mockClientes(inicial: Cliente[]): { creados: unknown[] } {
         nombre: String(body.nombre),
         telefono: (body.telefono as string | null) ?? null,
       });
-      lista.push(nuevo);
+      lista.push({ ...nuevo, mascotas: [] });
       return HttpResponse.json(nuevo, { status: 201 });
     }),
   );
@@ -152,7 +154,7 @@ describe("ClientesPage", () => {
       http.get("/api/clientes/buscar", ({ request }) =>
         HttpResponse.json(
           paginated(
-            new URL(request.url).searchParams.get("q") === "lucia" ? [makeCliente({ id: "c-9", nombre: "Lucía Herrera" })] : [],
+            new URL(request.url).searchParams.get("q") === "lucia" ? [makeClienteLista({ id: "c-9", nombre: "Lucía Herrera" })] : [],
           ),
         ),
       ),
@@ -267,17 +269,176 @@ describe("ClientesPage - alta con mascota", () => {
     expect(await within(panel).findByText("nombre inválido")).toBeInTheDocument();
     expect(within(panel).getByLabelText("Nombre de la mascota")).toHaveFocus();
   });
+});
 
-  it("la edición de un cliente no muestra el bloque de mascota", async () => {
-    sesion(duena);
-    mockClientes([makeCliente()]);
-    const { user } = renderLista();
-    await user.click(await screen.findByRole("button", { name: "Acciones de Ana Perez" }));
+describe("ClientesPage - editar cliente con mascotas", () => {
+  const mimi: Mascota = { id: "m-1", nombre: "MIMI", tipo: "gato", activo: true };
+  const toby: Mascota = { id: "m-2", nombre: "Toby", tipo: "perro", activo: true };
+
+  interface Opciones {
+    mascotas?: Mascota[];
+    /** Respuesta de `GET /clientes/c-1/mascotas`: `"error"` = 500, `"lenta"` = tarda. */
+    carga?: "ok" | "error" | "lenta";
+    put?: () => Response;
+  }
+
+  function mockEdicion({ mascotas = [mimi, toby], carga = "ok", put }: Opciones = {}): { puts: Record<string, unknown>[] } {
+    const puts: Record<string, unknown>[] = [];
+    mockClientes([makeClienteLista({ nombre: "Agustina", mascotas })]);
+    server.use(
+      http.get("/api/clientes/c-1/mascotas", async () => {
+        if (carga === "error") return HttpResponse.json({ detail: "boom" }, { status: 500 });
+        if (carga === "lenta") await delay(300);
+        return HttpResponse.json(mascotas);
+      }),
+      http.put("/api/clientes/c-1", async ({ request }) => {
+        puts.push((await request.json()) as Record<string, unknown>);
+        return put?.() ?? HttpResponse.json(makeCliente({ nombre: "Agustina" }));
+      }),
+    );
+    return { puts };
+  }
+
+  async function abrirEdicion(user: ReturnType<typeof renderLista>["user"]): Promise<HTMLElement> {
+    await user.click(await screen.findByRole("button", { name: "Acciones de Agustina" }));
     await user.click(await screen.findByRole("menuitem", { name: /editar/i }));
-    const panel = await screen.findByRole("dialog", { name: "Editar cliente" });
+    return screen.findByRole("dialog", { name: "Editar cliente" });
+  }
 
+  beforeEach(() => sesion(duena));
+
+  it("muestra las mascotas del cliente editables y no el bloque de alta", async () => {
+    mockEdicion();
+    const { user } = renderLista();
+    const panel = await abrirEdicion(user);
+
+    expect(await within(panel).findByLabelText("Nombre de la mascota 1")).toHaveValue("MIMI");
+    expect(within(panel).getByLabelText("Nombre de la mascota 2")).toHaveValue("Toby");
+    expect(within(panel).getByRole("combobox", { name: "Tipo de la mascota 1" })).toHaveTextContent("Gato");
+    expect(within(panel).getByRole("combobox", { name: "Tipo de la mascota 2" })).toHaveTextContent("Perro");
+    expect(within(panel).getByRole("button", { name: "Agregar mascota" })).toBeInTheDocument();
     expect(within(panel).queryByText("Mascota (opcional)")).not.toBeInTheDocument();
-    expect(within(panel).queryByLabelText("Nombre de la mascota")).not.toBeInTheDocument();
+  });
+
+  it("renombrar una mascota envía la lista con su id", async () => {
+    const { puts } = mockEdicion();
+    const { user } = renderLista();
+    const panel = await abrirEdicion(user);
+    const nombre = await within(panel).findByLabelText("Nombre de la mascota 1");
+    await user.clear(nombre);
+    await user.type(nombre, "Mimi");
+    await user.click(within(panel).getByRole("button", { name: "Guardar cambios" }));
+
+    expect((await screen.findAllByText("Cliente actualizado")).length).toBeGreaterThan(0);
+    expect(puts).toHaveLength(1);
+    expect(puts[0].mascotas).toEqual([
+      { id: "m-1", nombre: "Mimi", tipo: "gato" },
+      { id: "m-2", nombre: "Toby", tipo: "perro" },
+    ]);
+  });
+
+  it("agregar una mascota y quitar otra envía las mascotas resultantes", async () => {
+    const { puts } = mockEdicion();
+    const { user } = renderLista();
+    const panel = await abrirEdicion(user);
+    await within(panel).findByLabelText("Nombre de la mascota 1");
+    await user.click(within(panel).getByRole("button", { name: "Quitar mascota 2" }));
+    await user.click(within(panel).getByRole("button", { name: "Agregar mascota" }));
+    await user.type(within(panel).getByLabelText("Nombre de la mascota 2"), "Luna");
+    await user.click(within(panel).getByRole("combobox", { name: "Tipo de la mascota 2" }));
+    await user.click(await screen.findByRole("option", { name: "Otro" }));
+    await user.click(within(panel).getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].mascotas).toEqual([
+      { id: "m-1", nombre: "MIMI", tipo: "gato" },
+      { nombre: "Luna", tipo: "otro" },
+    ]);
+  });
+
+  it("quitar todas las mascotas envía una lista vacía", async () => {
+    const { puts } = mockEdicion({ mascotas: [mimi] });
+    const { user } = renderLista();
+    const panel = await abrirEdicion(user);
+    await user.click(await within(panel).findByRole("button", { name: "Quitar mascota 1" }));
+    await user.click(within(panel).getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].mascotas).toEqual([]);
+  });
+
+  it("una mascota sin nombre marca el campo y no envía", async () => {
+    const { puts } = mockEdicion();
+    const { user } = renderLista();
+    const panel = await abrirEdicion(user);
+    await user.clear(await within(panel).findByLabelText("Nombre de la mascota 2"));
+    await user.click(within(panel).getByRole("button", { name: "Guardar cambios" }));
+
+    expect(await within(panel).findByText("Ingresá el nombre")).toBeInTheDocument();
+    expect(puts).toEqual([]);
+  });
+
+  it("mientras cargan las mascotas muestra un indicador y guardar no envía mascotas", async () => {
+    const { puts } = mockEdicion({ carga: "lenta" });
+    const { user } = renderLista();
+    const panel = await abrirEdicion(user);
+
+    expect(within(panel).getByLabelText("Cargando mascotas")).toHaveAttribute("aria-busy", "true");
+    await user.click(within(panel).getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).not.toHaveProperty("mascotas");
+  });
+
+  it("si no se pueden cargar las mascotas avisa y guarda solo los datos del cliente", async () => {
+    const { puts } = mockEdicion({ carga: "error" });
+    const { user } = renderLista();
+    const panel = await abrirEdicion(user);
+
+    expect(await within(panel).findByText(/No pudimos cargar las mascotas/)).toBeInTheDocument();
+    expect(within(panel).queryByLabelText("Cargando mascotas")).not.toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).not.toHaveProperty("mascotas");
+  });
+
+  it("un 422 de mascotas.N.nombre se marca en la fila N", async () => {
+    mockEdicion({
+      put: () =>
+        HttpResponse.json(
+          { detail: [{ loc: ["body", "mascotas", 1, "nombre"], msg: "nombre inválido", type: "value_error" }] },
+          { status: 422 },
+        ),
+    });
+    const { user } = renderLista();
+    const panel = await abrirEdicion(user);
+    await within(panel).findByLabelText("Nombre de la mascota 1");
+    await user.click(within(panel).getByRole("button", { name: "Guardar cambios" }));
+
+    expect(await within(panel).findByText("nombre inválido")).toBeInTheDocument();
+    expect(within(panel).getByLabelText("Nombre de la mascota 2")).toHaveFocus();
+  });
+
+  it("un 409 por cliente dado de baja se informa sin marcar el email", async () => {
+    mockEdicion({ put: () => HttpResponse.json({ detail: "cliente dado de baja" }, { status: 409 }) });
+    const { user } = renderLista();
+    const panel = await abrirEdicion(user);
+    await within(panel).findByLabelText("Nombre de la mascota 1");
+    await user.click(within(panel).getByRole("button", { name: "Guardar cambios" }));
+
+    expect((await screen.findAllByText("cliente dado de baja")).length).toBeGreaterThan(0);
+    expect(within(panel).queryByText("Ya existe un cliente con ese email")).not.toBeInTheDocument();
+  });
+
+  it("un 409 por email repetido sigue marcándose en el campo email", async () => {
+    mockEdicion({ put: () => HttpResponse.json({ detail: "email ya registrado" }, { status: 409 }) });
+    const { user } = renderLista();
+    const panel = await abrirEdicion(user);
+    await within(panel).findByLabelText("Nombre de la mascota 1");
+    await user.click(within(panel).getByRole("button", { name: "Guardar cambios" }));
+
+    expect(await within(panel).findByText("Ya existe un cliente con ese email")).toBeInTheDocument();
   });
 });
 
@@ -699,13 +860,134 @@ describe("ClienteDetallePage - cliente de baja y paginación", () => {
   });
 });
 
+describe("ClientesPage - columna Mascotas", () => {
+  beforeEach(() => sesion(mostrador));
+
+  const mimi = { id: "m-1", nombre: "MIMI", tipo: "gato", activo: true } as const;
+  const toby = { id: "m-2", nombre: "Toby", tipo: "perro", activo: true } as const;
+
+  it("muestra 'Nombre (Tipo)' separadas por coma y '—' si no tiene", async () => {
+    mockClientes([
+      makeClienteLista({ id: "c-1", nombre: "Agustina", mascotas: [mimi, toby] }),
+      makeClienteLista({ id: "c-2", nombre: "Lucía" }),
+    ]);
+    renderLista();
+
+    expect(await screen.findByRole("columnheader", { name: "Mascotas" })).toBeInTheDocument();
+    const fila1 = (await screen.findByText("Agustina")).closest("tr");
+    const fila2 = screen.getByText("Lucía").closest("tr");
+    expect(within(fila1 as HTMLElement).getByText("MIMI (Gato), Toby (Perro)")).toBeInTheDocument();
+    expect(within(fila2 as HTMLElement).getAllByText("—").length).toBeGreaterThan(0);
+    expect(within(fila2 as HTMLElement).queryByText(/\(/)).not.toBeInTheDocument();
+  });
+
+  it("también en los resultados de búsqueda", async () => {
+    mockClientes([makeClienteLista()]);
+    server.use(
+      http.get("/api/clientes/buscar", () =>
+        HttpResponse.json(paginated([makeClienteLista({ nombre: "Agustina", mascotas: [{ ...toby, tipo: "otro" }] })])),
+      ),
+    );
+    const { user } = renderLista();
+    await screen.findByText("Ana Perez");
+    await user.type(screen.getByRole("searchbox", { name: "Buscar clientes" }), "agus");
+
+    expect(await screen.findByText("Toby (Otro)")).toBeInTheDocument();
+  });
+});
+
+describe("coherencia entre la ficha y la tabla", () => {
+  it("agregar una mascota desde la ficha y volver a la lista la muestra", async () => {
+    sesion(duena);
+    const mascotas: Mascota[] = [];
+    server.use(
+      http.get("/api/clientes", () => HttpResponse.json(paginated([makeClienteLista({ mascotas: [...mascotas] })]))),
+      http.get("/api/clientes/c-1", () => HttpResponse.json(makeCliente())),
+      http.get("/api/clientes/c-1/ventas", () => HttpResponse.json(paginated([]))),
+      http.get("/api/clientes/c-1/mascotas", () => HttpResponse.json(mascotas)),
+      http.post("/api/clientes/c-1/mascotas", async ({ request }) => {
+        const body = (await request.json()) as { nombre: string; tipo: Mascota["tipo"] };
+        const nueva: Mascota = { id: "m-nueva", nombre: body.nombre, tipo: body.tipo, activo: true };
+        mascotas.push(nueva);
+        return HttpResponse.json(nueva, { status: 201 });
+      }),
+    );
+    // Cache con staleTime como en produccion: sin invalidacion, la lista volveria vieja.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+    const { user } = renderWithProviders(
+      <>
+        <Toaster />
+        <Routes>
+          <Route path="/clientes" element={<ClientesPage />} />
+          <Route path="/clientes/:id" element={<ClienteDetallePage />} />
+        </Routes>
+      </>,
+      { route: "/clientes", queryClient },
+    );
+    await user.click(await screen.findByRole("link", { name: "Ana Perez" }));
+    await screen.findByText("Sin mascotas registradas");
+    await user.click(screen.getAllByRole("button", { name: "Agregar mascota" })[0]);
+    const panel = await screen.findByRole("dialog", { name: "Agregar mascota" });
+    await user.type(within(panel).getByLabelText("Nombre"), "Luna");
+    await user.click(within(panel).getByRole("button", { name: "Guardar mascota" }));
+    expect((await screen.findAllByText("Mascota agregada")).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("link", { name: "Clientes" }));
+    expect(await screen.findByText("Luna (Perro)")).toBeInTheDocument();
+  });
+});
+
+describe("coherencia: Editar cliente desde la ficha", () => {
+  it("renombrar una mascota actualiza la sección Mascotas de la ficha y la tabla", async () => {
+    sesion(duena);
+    let mascotas: Mascota[] = [{ id: "m-1", nombre: "MIMI", tipo: "gato", activo: true }];
+    const puts: Record<string, unknown>[] = [];
+    server.use(
+      http.get("/api/clientes", () => HttpResponse.json(paginated([makeClienteLista({ mascotas })]))),
+      http.get("/api/clientes/c-1", () => HttpResponse.json(makeCliente())),
+      http.get("/api/clientes/c-1/ventas", () => HttpResponse.json(paginated([]))),
+      http.get("/api/clientes/c-1/mascotas", () => HttpResponse.json(mascotas)),
+      http.put("/api/clientes/c-1", async ({ request }) => {
+        const body = (await request.json()) as { mascotas: { id: string; nombre: string; tipo: Mascota["tipo"] }[] };
+        puts.push(body);
+        mascotas = body.mascotas.map((m) => ({ ...m, activo: true }));
+        return HttpResponse.json(makeCliente());
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+    const { user } = renderWithProviders(
+      <>
+        <Toaster />
+        <Routes>
+          <Route path="/clientes" element={<ClientesPage />} />
+          <Route path="/clientes/:id" element={<ClienteDetallePage />} />
+        </Routes>
+      </>,
+      { route: "/clientes/c-1", queryClient },
+    );
+    expect(await screen.findByText("MIMI · Gato")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    const panel = await screen.findByRole("dialog", { name: "Editar cliente" });
+    const nombre = await within(panel).findByLabelText("Nombre de la mascota 1");
+    expect(nombre).toHaveValue("MIMI");
+    await user.clear(nombre);
+    await user.type(nombre, "Mimi");
+    await user.click(within(panel).getByRole("button", { name: "Guardar cambios" }));
+
+    expect(await screen.findByText("Mimi · Gato")).toBeInTheDocument();
+    expect(puts).toHaveLength(1);
+    await user.click(screen.getByRole("link", { name: "Clientes" }));
+    expect(await screen.findByText("Mimi (Gato)")).toBeInTheDocument();
+  });
+});
+
 describe("ClientesPage - estados de la lista", () => {
   it("un error de carga ofrece 'Reintentar' y al reintentar muestra la lista", async () => {
     sesion(mostrador);
     let fallar = true;
     server.use(
       http.get("/api/clientes", () =>
-        fallar ? HttpResponse.json({ detail: "boom" }, { status: 500 }) : HttpResponse.json(paginated([makeCliente()])),
+        fallar ? HttpResponse.json({ detail: "boom" }, { status: 500 }) : HttpResponse.json(paginated([makeClienteLista()])),
       ),
     );
     const { user } = renderLista();
@@ -767,7 +1049,7 @@ describe("ClientesPage - estados de la lista", () => {
   it("al dar de baja al único cliente de la página 2 muestra la página 1", async () => {
     sesion(duena);
     let baja = false;
-    const cliente = (n: number): Cliente => makeCliente({ id: `c-${n}`, nombre: `Cliente ${n}` });
+    const cliente = (n: number): ClienteListItem => makeClienteLista({ id: `c-${n}`, nombre: `Cliente ${n}` });
     server.use(
       http.get("/api/clientes", ({ request }) => {
         const page = Number(new URL(request.url).searchParams.get("page"));

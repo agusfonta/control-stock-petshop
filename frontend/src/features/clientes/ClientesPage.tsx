@@ -12,7 +12,8 @@ import {
 import { ClienteSheet } from "@/features/clientes/ClienteSheet";
 import { PAGE_SIZE, useBajaCliente, useClientes } from "@/features/clientes/api";
 import { ApiError } from "@/shared/api/errors";
-import type { Cliente } from "@/shared/api/types";
+import { TIPO_MASCOTA_LABEL } from "@/features/clientes/mascotaForm";
+import type { Cliente, ClienteListItem } from "@/shared/api/types";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { DataTable, type DataTableColumn } from "@/shared/components/DataTable";
 import { EmptyState } from "@/shared/components/EmptyState";
@@ -58,7 +59,7 @@ export function ClientesPage(): ReactElement {
     }
   }
 
-  const columnas: DataTableColumn<Cliente>[] = [
+  const columnas: DataTableColumn<ClienteListItem>[] = [
     {
       id: "nombre",
       header: "Nombre",
@@ -74,6 +75,16 @@ export function ClientesPage(): ReactElement {
     { id: "telefono", header: "Teléfono", cell: (c) => c.telefono ?? <span className="text-muted-foreground">—</span> },
     { id: "email", header: "Email", cell: (c) => c.email ?? <span className="text-muted-foreground">—</span> },
     { id: "direccion", header: "Dirección", cell: (c) => c.direccion ?? <span className="text-muted-foreground">—</span> },
+    {
+      id: "mascotas",
+      header: "Mascotas",
+      cell: (c) =>
+        c.mascotas.length === 0 ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          c.mascotas.map((m) => `${m.nombre} (${TIPO_MASCOTA_LABEL[m.tipo]})`).join(", ")
+        ),
+    },
   ];
   if (puedeEditar) {
     columnas.push({

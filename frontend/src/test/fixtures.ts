@@ -1,4 +1,4 @@
-import type { Cliente, Me, Producto } from "@/shared/api/types";
+import type { Cliente, ClienteListItem, Me, Producto } from "@/shared/api/types";
 
 /** Datos de ejemplo compartidos por los tests (el demo real vive en backend/scripts/seed_demo.py). */
 export const duena: Me = { id: "u-duena", email: "duena@petshop.local", rol: "duena", activo: true };
@@ -39,6 +39,11 @@ export function makeCliente(overrides: Partial<Cliente> = {}): Cliente {
     updated_at: FECHA,
     ...overrides,
   };
+}
+
+/** Cliente tal como lo devuelve la lista: con sus mascotas activas (vacio por defecto). */
+export function makeClienteLista(overrides: Partial<ClienteListItem> = {}): ClienteListItem {
+  return { ...makeCliente(), mascotas: [], ...overrides };
 }
 
 /** Respuesta paginada de la API alrededor de una lista de items. */

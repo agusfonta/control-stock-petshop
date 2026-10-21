@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { Cliente, ClienteInput } from "@/shared/api/types";
+import { mascotaSchema } from "@/features/clientes/mascotaForm";
+import type { Cliente, ClienteInput, Mascota } from "@/shared/api/types";
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const TELEFONO = /^\+?[0-9]{6,20}$/;
@@ -25,6 +26,8 @@ export const clienteSchema = z
     mascotaNombre: z.string().trim().max(100, "Máximo 100 caracteres"),
     /** `""` = sin elegir. */
     mascotaTipo: z.union([z.enum(["perro", "gato", "otro"]), z.literal("")]),
+    /** Solo en la edicion: mascotas activas del cliente (`id` ausente = nueva). */
+    mascotas: z.array(mascotaSchema.extend({ id: z.string().optional() })),
   })
   .superRefine((v, ctx) => {
     if (v.mascotaNombre !== "" && v.mascotaTipo === "") {
@@ -38,10 +41,10 @@ export const clienteSchema = z
 export type ClienteFormValues = z.infer<typeof clienteSchema>;
 
 export function valoresClienteVacios(): ClienteFormValues {
-  return { nombre: "", telefono: "", email: "", direccion: "", mascotaNombre: "", mascotaTipo: "" };
+  return { nombre: "", telefono: "", email: "", direccion: "", mascotaNombre: "", mascotaTipo: "", mascotas: [] };
 }
 
-export function valoresClienteDesde(c: Cliente): ClienteFormValues {
+export function valoresClienteDesde(c: Cliente, mascotas: readonly Mascota[] = []): ClienteFormValues {
   return {
     nombre: c.nombre,
     telefono: c.telefono ?? "",
@@ -49,21 +52,35 @@ export function valoresClienteDesde(c: Cliente): ClienteFormValues {
     direccion: c.direccion ?? "",
     mascotaNombre: "",
     mascotaTipo: "",
+    mascotas: mascotas.map((m) => ({ id: m.id, nombre: m.nombre, tipo: m.tipo })),
   };
 }
 
 const opcional = (texto: string): string | null => (texto.trim() === "" ? null : texto.trim());
 
-/** Cuerpo de alta/edicion: los opcionales vacios viajan como `null`; `mascota` solo si hay nombre y tipo. */
-export function aPayloadCliente(v: ClienteFormValues): ClienteInput {
+/**
+ * Cuerpo de alta/edicion: los opcionales vacios viajan como `null`.
+ * - `alta`: `mascota` solo si hay nombre y tipo.
+ * - `edicion`: sin mascotas (no se cargaron: el servidor no las toca).
+ * - `edicion-con-mascotas`: `mascotas` completo (reemplazo total); nunca `mascota`.
+ */
+export type ModoPayloadCliente = "alta" | "edicion" | "edicion-con-mascotas";
+
+export function aPayloadCliente(v: ClienteFormValues, modo: ModoPayloadCliente = "alta"): ClienteInput {
   const payload: ClienteInput = {
     nombre: v.nombre.trim(),
     telefono: opcional(v.telefono),
     email: opcional(v.email),
     direccion: opcional(v.direccion),
   };
+  if (modo === "edicion-con-mascotas") {
+    payload.mascotas = v.mascotas.map((m) => {
+      const nombre = m.nombre.trim();
+      return m.id === undefined ? { nombre, tipo: m.tipo } : { id: m.id, nombre, tipo: m.tipo };
+    });
+  }
   const nombreMascota = v.mascotaNombre.trim();
-  if (nombreMascota !== "" && v.mascotaTipo !== "") {
+  if (modo === "alta" && nombreMascota !== "" && v.mascotaTipo !== "") {
     payload.mascota = { nombre: nombreMascota, tipo: v.mascotaTipo };
   }
   return payload;
