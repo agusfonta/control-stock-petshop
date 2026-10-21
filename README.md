@@ -98,7 +98,7 @@ Notas:
 | Dueña | `duena@petshop.local` | `demo-duena-2026` |
 | Mostrador | `mostrador@petshop.local` | `demo-mostrador-2026` |
 
-> Son valores de prueba **exclusivos para desarrollo local**. Las contraseñas no están en el código: el seed las lee de `SEED_OWNER_PASSWORD` y `SEED_MOSTRADOR_PASSWORD` (en Docker están definidas en `docker-compose.yml`, servicio `api`; sin Docker, las del paso 2 de arriba). El seed se niega a correr si `ENV` no es `dev` o `test`, así que estos usuarios nunca se crean en un entorno real. No las reutilices en producción.
+> Son valores de prueba **exclusivos para desarrollo local**. Las contraseñas no están en el código: el seed las lee de `SEED_OWNER_PASSWORD` y `SEED_MOSTRADOR_PASSWORD` (en Docker están definidas en `docker-compose.yml`, servicio `api`; sin Docker, las del paso 2 de arriba). El seed se niega a correr si `ENV` no es `dev`, `test` o `staging` (este último solo para la demo en la nube), así que estos usuarios nunca se crean en un entorno real. No las reutilices en producción.
 
 La dueña accede a todo (costos, márgenes, pagos a distribuidoras, anulaciones, reportes completos); el mostrador vende, consulta stock, crea clientes y arma/recibe pedidos, pero no ve costos ni puede anular ventas.
 
@@ -156,6 +156,10 @@ npm test            # vitest, una sola corrida
 npm run build       # chequeo de tipos (tsc estricto) + build de producción
 npm run knip        # detecta código, exports y dependencias sin uso
 ```
+
+### Demo en la nube
+
+Para publicar una demo gratis en Render (datos de demostración, **nunca datos reales**) seguí [docs/demo-render.md](docs/demo-render.md).
 
 ### Costo del hash de contraseñas (`BCRYPT_ROUNDS`)
 
