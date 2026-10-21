@@ -20,6 +20,7 @@ from app.modules.clientes import service as svc
 from app.modules.clientes.models import Cliente, Mascota
 from app.modules.clientes.schemas import (
     ClienteCreate,
+    ClienteListItem,
     ClienteListResponse,
     ClienteResponse,
     ClienteUpdate,
@@ -67,15 +68,22 @@ def _http_error(exc: svc.ClientesError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="q no puede estar en blanco")
 
 
-def _lista(items: list[Cliente], total: int, page: int, page_size: int) -> ClienteListResponse:
-    """Envelope paginado de clientes."""
+def _lista(db: Session, items: list[Cliente], total: int, page: int, page_size: int) -> ClienteListResponse:
+    """Envelope paginado de clientes con sus mascotas activas (una consulta por pagina)."""
     total_pages = math.ceil(total / page_size) if total else 0
+    mascotas = svc.mascotas_activas_por_cliente(db, [c.id for c in items])
     return ClienteListResponse(
         total=total,
         page=page,
         page_size=page_size,
         total_pages=total_pages,
-        items=[_to_response(c) for c in items],
+        items=[
+            ClienteListItem(
+                **_to_response(c).model_dump(),
+                mascotas=[_mascota_response(m) for m in mascotas.get(c.id, [])],
+            )
+            for c in items
+        ],
     )
 
 
@@ -104,7 +112,7 @@ def listar_clientes(
     """Lista paginada de clientes activos, ordenados por nombre."""
     _ = current
     items, total = svc.listar_clientes(db, page, page_size)
-    return _lista(items, total, page, page_size)
+    return _lista(db, items, total, page, page_size)
 
 
 @router.get("/buscar", response_model=ClienteListResponse)
@@ -126,10 +134,10 @@ def buscar_clientes(
         items, total = svc.buscar_clientes(db, q, page, page_size)
     except svc.ClientesError as exc:
         raise _http_error(exc) from None
-    return _lista(items, total, page, page_size)
+    return _lista(db, items, total, page, page_size)
 
 
-@router.get("/{cliente_id}", response_model=ClienteResponse)
+@router.get("/{cliente_id}",response_model=ClienteResponse)
 def obtener_cliente(
     cliente_id: str,
     db: Session = Depends(deps.get_db),

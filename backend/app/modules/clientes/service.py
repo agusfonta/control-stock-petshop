@@ -12,7 +12,13 @@ from sqlalchemy.orm import Query, Session
 
 from app.core.texto import PARES_PLEGADO, sin_acentos, solo_digitos
 from app.modules.clientes.models import Cliente, Mascota
-from app.modules.clientes.schemas import ClienteCreate, ClienteUpdate, MascotaCreate, MascotaUpdate
+from app.modules.clientes.schemas import (
+    ClienteCreate,
+    ClienteUpdate,
+    MascotaCreate,
+    MascotaEdicion,
+    MascotaUpdate,
+)
 
 __all__ = [
     "ClientesError",
@@ -30,6 +36,7 @@ __all__ = [
     "desactivar_mascota",
     "listar_clientes",
     "listar_mascotas",
+    "mascotas_activas_por_cliente",
     "obtener_cliente",
 ]
 
@@ -85,6 +92,22 @@ def _paginar(query: Query, page: int, page_size: int) -> tuple[list[Cliente], in
     total = query.count()
     items = query.order_by(Cliente.nombre, Cliente.id).offset((page - 1) * page_size).limit(page_size).all()
     return items, total
+
+
+def mascotas_activas_por_cliente(db: Session, cliente_ids: list[str]) -> dict[str, list[Mascota]]:
+    """Mascotas activas de varios clientes en UNA consulta, agrupadas por cliente."""
+    if not cliente_ids:
+        return {}
+    filas = (
+        db.query(Mascota)
+        .filter(Mascota.cliente_id.in_(cliente_ids), Mascota.activo.is_(True))
+        .order_by(Mascota.created_at, Mascota.id)
+        .all()
+    )
+    agrupadas: dict[str, list[Mascota]] = {}
+    for mascota in filas:
+        agrupadas.setdefault(mascota.cliente_id, []).append(mascota)
+    return agrupadas
 
 
 def _nueva_mascota(cliente_id: str, data: MascotaCreate) -> Mascota:
@@ -158,15 +181,45 @@ def buscar_clientes(db: Session, q: str, page: int, page_size: int) -> tuple[lis
 
 
 def actualizar_cliente(db: Session, cliente_id: str, data: ClienteUpdate) -> Cliente:
-    """Actualiza parcialmente un cliente; email unico entre activos."""
+    """Actualiza parcialmente un cliente; email unico entre activos.
+
+    Si trae `mascotas` (C-19) las REEMPLAZA en la misma transaccion: con `id`
+    actualiza, sin `id` crea y las activas omitidas se dan de baja. Exige
+    cliente activo; sin `mascotas` el cliente de baja sigue siendo editable.
+    """
     cliente = obtener_cliente(db, cliente_id)
     cambios = data.model_dump(exclude_unset=True)
+    mascotas = cambios.pop("mascotas", None)
+    if mascotas is not None and not cliente.activo:
+        raise ClienteInactivo(cliente_id)
     _verificar_email_libre(db, cambios.get("email"), excluir_id=cliente.id)
-    for field, value in cambios.items():
-        setattr(cliente, field, value)
-    db.commit()
+    try:
+        for field, value in cambios.items():
+            setattr(cliente, field, value)
+        if mascotas is not None:
+            _reemplazar_mascotas(db, cliente.id, data.mascotas or [])
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(cliente)
     return cliente
+
+
+def _reemplazar_mascotas(db: Session, cliente_id: str, pedidas: list[MascotaEdicion]) -> None:
+    """Deja como activas exactamente `pedidas` (SIN commit: transaccion del llamador)."""
+    activas = (
+        db.query(Mascota).filter(Mascota.cliente_id == cliente_id, Mascota.activo.is_(True)).all()
+    )
+    conservar = {m.id for m in pedidas if m.id is not None}
+    for pedida in pedidas:
+        if pedida.id is None:
+            _agregar_mascota(db, cliente_id, pedida)
+        else:
+            _modificar_mascota(db, cliente_id, pedida.id, {"nombre": pedida.nombre, "tipo": pedida.tipo})
+    for mascota in activas:
+        if mascota.id not in conservar:
+            mascota.activo = False
 
 
 def desactivar_cliente(db: Session, cliente_id: str) -> None:
@@ -200,11 +253,30 @@ def _obtener_mascota(db: Session, cliente_id: str, mascota_id: str) -> Mascota:
     return mascota
 
 
+def _agregar_mascota(db: Session, cliente_id: str, data: MascotaCreate) -> Mascota:
+    """Agrega la mascota a la sesion SIN commit (la transaccion es del llamador)."""
+    mascota = _nueva_mascota(cliente_id, data)
+    db.add(mascota)
+    return mascota
+
+
+def _modificar_mascota(db: Session, cliente_id: str, mascota_id: str, cambios: dict) -> Mascota:
+    """Aplica `cambios` a una mascota ACTIVA del cliente SIN commit."""
+    mascota = _obtener_mascota(db, cliente_id, mascota_id)
+    for field, value in cambios.items():
+        setattr(mascota, field, value)
+    return mascota
+
+
+def _dar_de_baja_mascota(db: Session, cliente_id: str, mascota_id: str) -> None:
+    """Baja logica de una mascota ACTIVA del cliente SIN commit."""
+    _obtener_mascota(db, cliente_id, mascota_id).activo = False
+
+
 def crear_mascota(db: Session, cliente_id: str, data: MascotaCreate) -> Mascota:
     """Crea una mascota del cliente (created_at explicito: orden estable)."""
     _obtener_cliente_activo(db, cliente_id)
-    mascota = _nueva_mascota(cliente_id, data)
-    db.add(mascota)
+    mascota = _agregar_mascota(db, cliente_id, data)
     db.commit()
     db.refresh(mascota)
     return mascota
@@ -224,9 +296,7 @@ def listar_mascotas(db: Session, cliente_id: str) -> list[Mascota]:
 def actualizar_mascota(db: Session, cliente_id: str, mascota_id: str, data: MascotaUpdate) -> Mascota:
     """Actualiza parcialmente una mascota activa del cliente (cliente activo)."""
     _obtener_cliente_activo(db, cliente_id)
-    mascota = _obtener_mascota(db, cliente_id, mascota_id)
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(mascota, field, value)
+    mascota = _modificar_mascota(db, cliente_id, mascota_id, data.model_dump(exclude_unset=True))
     db.commit()
     db.refresh(mascota)
     return mascota
@@ -234,6 +304,5 @@ def actualizar_mascota(db: Session, cliente_id: str, mascota_id: str, data: Masc
 
 def desactivar_mascota(db: Session, cliente_id: str, mascota_id: str) -> None:
     """Baja logica: activo=False, nunca borra fisico."""
-    mascota = _obtener_mascota(db, cliente_id, mascota_id)
-    mascota.activo = False
+    _dar_de_baja_mascota(db, cliente_id, mascota_id)
     db.commit()

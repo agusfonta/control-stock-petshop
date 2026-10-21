@@ -68,6 +68,15 @@ class MascotaCreate(BaseModel):
         return _nombre_cliente(v)
 
 
+MAX_MASCOTAS_POR_EDICION = 20
+
+
+class MascotaEdicion(MascotaCreate):
+    """Mascota dentro de PUT /api/clientes/{id}: con `id` se actualiza, sin `id` se crea."""
+
+    id: str | None = Field(default=None, min_length=1)
+
+
 class ClienteCreate(BaseModel):
     """Alta de cliente (POST /api/clientes): solo `nombre` es obligatorio."""
 
@@ -109,6 +118,7 @@ class ClienteUpdate(BaseModel):
     telefono: str | None = Field(default=None, max_length=21)
     email: str | None = Field(default=None, max_length=320, pattern=EMAIL_PATTERN)
     direccion: str | None = Field(default=None, max_length=300)
+    mascotas: list[MascotaEdicion] | None = Field(default=None, max_length=MAX_MASCOTAS_POR_EDICION)
 
     @field_validator("nombre", mode="before")
     @classmethod
@@ -130,6 +140,21 @@ class ClienteUpdate(BaseModel):
     def _direccion(cls, v: object) -> object:
         return _opcional_en_blanco(v)
 
+    @field_validator("mascotas", mode="before")
+    @classmethod
+    def _mascotas_no_nulas(cls, v: object) -> object:
+        if v is None:
+            raise ValueError("mascotas no puede ser nulo")
+        return v
+
+    @field_validator("mascotas")
+    @classmethod
+    def _ids_unicos(cls, v: list[MascotaEdicion]) -> list[MascotaEdicion]:
+        ids = [m.id for m in v if m.id is not None]
+        if len(ids) != len(set(ids)):
+            raise ValueError("mascotas con id repetido")
+        return v
+
 
 class ClienteResponse(BaseModel):
     """Cliente expuesto via API (sin `saldo_cc`, reservado en v1)."""
@@ -144,12 +169,6 @@ class ClienteResponse(BaseModel):
     activo: bool
     created_at: datetime
     updated_at: datetime
-
-
-class ClienteListResponse(PaginacionResponse):
-    """Envelope paginado de GET /api/clientes y /api/clientes/buscar."""
-
-    items: list[ClienteResponse] = Field(default_factory=list)
 
 
 # --- C-17: mascotas de un cliente ---
@@ -184,3 +203,18 @@ class MascotaResponse(BaseModel):
     nombre: str
     tipo: TipoMascota
     activo: bool
+
+
+# --- C-19: lista con mascotas ---
+
+
+class ClienteListItem(ClienteResponse):
+    """Cliente en la lista/busqueda: suma sus mascotas activas (solo lectura)."""
+
+    mascotas: list[MascotaResponse]
+
+
+class ClienteListResponse(PaginacionResponse):
+    """Envelope paginado de GET /api/clientes y /api/clientes/buscar."""
+
+    items: list[ClienteListItem] = Field(default_factory=list)
