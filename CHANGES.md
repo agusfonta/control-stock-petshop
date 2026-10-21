@@ -431,3 +431,17 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
 - **Leer antes**:
   - `openspec/changes/archive/2026-10-19-c-18-clientes-mascotas-pulido/design.md`
   - `knowledge-base/06_funcionalidades.md` §US-007
+
+---
+
+### [C-19] `mascotas-en-tabla-y-edicion`
+- **Estado**: `[x]` completado (archivado 2026-10-21)
+- **Scope**: Mascotas visibles en la tabla de clientes y editables desde "Editar cliente"
+  - `GET /api/clientes` y `/buscar` devuelven las mascotas activas de cada cliente (una sola consulta extra por página) y la tabla suma la columna "Mascotas"
+  - `PUT /api/clientes/{id}` acepta `mascotas` (reemplazo atómico: actualiza, crea y da de baja); "Editar cliente" muestra, edita, agrega y quita mascotas
+  - Las mutaciones de mascota de la ficha invalidan la lista (tabla, ficha y edición coherentes)
+- **Dependencias**: C-18
+- **Governance**: MEDIO
+- **Leer antes**:
+  - `openspec/changes/archive/2026-10-21-c-19-mascotas-en-tabla-y-edicion/design.md`
+  - `knowledge-base/06_funcionalidades.md` §US-007
