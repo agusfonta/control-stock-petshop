@@ -1,6 +1,7 @@
 """Application settings loaded from environment (env-only secrets)."""
 
 from functools import lru_cache
+from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, model_validator
@@ -16,7 +17,7 @@ class Settings(BaseSettings):
     # arranque en vez de caer en credenciales o modo "dev" implicitos.
     database_url: str
     secret_key: str
-    env: str
+    env: Literal["dev", "test", "staging", "prod"]
     redis_url: str = "redis://localhost:6379/0"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7

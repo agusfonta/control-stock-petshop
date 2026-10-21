@@ -1,6 +1,7 @@
 """Flags de la cookie de refresh (C-03 task 5.3)."""
 
 import httpx
+import pytest
 
 from tests.conftest import DUENA_EMAIL, DUENA_PASSWORD
 
@@ -21,15 +22,17 @@ async def test_login_setea_cookie_httponly_samesite_lax(client) -> None:
     assert "secure" not in lowered  # http local/dev: sin Secure por design
 
 
-async def test_cookie_secure_en_prod(
-    db_session_factory, fake_redis, seed_users
-) -> None:
+async def _login_con_env(db_session_factory, fake_redis, env: str):
     from app import deps
     from app.core.config import Settings
     from app.main import create_app
 
-    prod_settings = Settings(
-        _env_file=None, env="prod", secret_key=PROD_SECRET, bcrypt_rounds=12
+    settings = Settings(
+        _env_file=None,
+        env=env,
+        secret_key=PROD_SECRET,
+        bcrypt_rounds=12,
+        redis_url="redis://redis:6379/0",
     )
     app = create_app()
 
@@ -42,18 +45,26 @@ async def test_cookie_secure_en_prod(
 
     app.dependency_overrides[deps.get_db] = _override_db
     app.dependency_overrides[deps.get_redis] = lambda: fake_redis
-    app.dependency_overrides[deps.get_settings] = lambda: prod_settings
+    app.dependency_overrides[deps.get_settings] = lambda: settings
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        response = await ac.post(
+        return await ac.post(
             LOGIN_URL, json={"email": DUENA_EMAIL, "password": DUENA_PASSWORD}
         )
+
+
+@pytest.mark.parametrize("env", ["prod", "staging"])
+async def test_cookie_secure_en_prod_y_staging(
+    db_session_factory, fake_redis, seed_users, env: str
+) -> None:
+    response = await _login_con_env(db_session_factory, fake_redis, env)
     assert response.status_code == 200
-    lowered = response.headers.get("set-cookie", "").lower()
+    lowered = response.headers.get("set-cookie", "").lower().replace(" ", "")
     assert "httponly" in lowered
     assert "secure" in lowered
+    assert "samesite=lax" in lowered
 
 
 async def test_refresh_tambien_setea_cookie_segura(client) -> None:
