@@ -1,0 +1,69 @@
+# Blueprint de la DEMO de Animall en Render (plan gratis). Ver docs/demo-render.md.
+# Sin secretos: SECRET_KEY la genera Render; las contraseñas del seed se piden al
+# crear el Blueprint (sync: false); DATABASE_URL y REDIS_URL vienen de los recursos.
+services:
+  - type: web
+    name: animall-demo-api
+    runtime: docker
+    plan: free
+    region: virginia
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ENV
+        value: staging
+      - key: PORT
+        value: "8000"
+      - key: SEED_DEMO_AL_ARRANCAR
+        value: "true"
+      - key: CORS_ORIGINS
+        value: https://animall-demo.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: animall-demo-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: animall-demo-kv
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SEED_OWNER_PASSWORD
+        sync: false
+      - key: SEED_MOSTRADOR_PASSWORD
+        sync: false
+
+  - type: keyvalue
+    name: animall-demo-kv
+    plan: free
+    region: virginia
+    ipAllowList: [] # solo red interna de Render
+
+  - type: web
+    name: animall-demo
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+    routes:
+      # El orden importa: /api/* va al backend antes del fallback de la SPA.
+      # Si Render asigna otra URL al backend, corregir el destino (ver guia).
+      - type: rewrite
+        source: /api/*
+        destination: https://animall-demo-api.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  - name: animall-demo-db
+    plan: free
+    region: virginia
+    ipAllowList: [] # solo red interna de Render

@@ -388,6 +388,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux)         │ Age
   - `knowledge-base/10_preguntas_abiertas.md` §Dónde se despliega
   - `knowledge-base/08_arquitectura_propuesta.md` §Variables de entorno
   - `knowledge-base/02_descripcion_general.md` §Infra local
+- **Nota**: el paso de demo se hizo como change `c-15-demo-render` (archivado 2026-10-21, `openspec/changes/archive/2026-10-21-c-15-demo-render/`). El trabajo restante queda en `docs/plan-produccion.md` (C-15a..d).
 
 ---
 

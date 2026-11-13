@@ -83,8 +83,35 @@ def test_aborta_con_env_prod_y_no_modifica_la_base(db_session_factory) -> None:
     with pytest.raises(SystemExit) as exc:
         _seed(db_session_factory, env="prod")
 
-    assert "dev" in str(exc.value.code)
+    mensaje = str(exc.value.code)
+    assert "staging" in mensaje and "dev" in mensaje
     assert all(v == 0 for v in _contar(db_session_factory).values())
+
+
+def test_staging_carga_el_demo_y_es_idempotente(db_session_factory) -> None:
+    from app.core.security import verify_password
+
+    primero = _seed(db_session_factory, env="staging")
+    cuentas = _contar(db_session_factory)
+    with db_session_factory() as s:
+        hash_antes = s.query(Usuario).filter_by(email=OWNER_EMAIL).one().password_hash
+
+    assert primero["datos_creados"] is True
+    assert cuentas["usuarios"] == 2 and cuentas["productos"] >= 15
+
+    segundo = _seed(
+        db_session_factory,
+        env="staging",
+        owner_password="otra-clave-distinta",
+        mostrador_password="otra-clave-mostrador",
+    )
+
+    assert segundo["datos_creados"] is False
+    assert _contar(db_session_factory) == cuentas
+    with db_session_factory() as s:
+        duena = s.query(Usuario).filter_by(email=OWNER_EMAIL).one()
+    assert duena.password_hash == hash_antes
+    assert verify_password(OWNER_PWD, duena.password_hash)
 
 
 def test_sin_passwords_falla_nombrando_las_variables(

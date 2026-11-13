@@ -38,8 +38,11 @@ SESSION_UNAVAILABLE = "servicio de sesion no disponible"
 
 
 def _secure_cookie(request: Request, settings: Settings) -> bool:
-    """Secure solo en prod o sobre https (design: no romper http local)."""
-    return settings.env == "prod" or request.url.scheme == "https"
+    """Secure en prod/staging o sobre https (no romper http local).
+
+    Detras del proxy de la plataforma uvicorn ve http, por eso staging fuerza Secure.
+    """
+    return settings.env in ("prod", "staging") or request.url.scheme == "https"
 
 
 @router.post("/login", response_model=TokenResponse)

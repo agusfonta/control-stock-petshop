@@ -1,4 +1,4 @@
-"""Seed de demostracion de Animall (C-13 D15). Solo ENV=dev|test.
+"""Seed de demostracion de Animall (C-13 D15). Solo ENV=dev|test|staging.
 
 Crea la duena y un usuario mostrador (passwords SOLO por variables de
 entorno, sin defaults), un catalogo petshop, distribuidoras con listas de
@@ -27,7 +27,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import update
 
-ENVS_PERMITIDOS = ("dev", "test")
+ENVS_PERMITIDOS = ("dev", "test", "staging")
 OWNER_ENV = "SEED_OWNER_PASSWORD"
 MOSTRADOR_ENV = "SEED_MOSTRADOR_PASSWORD"
 MOSTRADOR_EMAIL = "mostrador@petshop.local"
@@ -432,7 +432,7 @@ def run_seed_demo(
     entorno = _entorno_actual(env)
     if entorno not in ENVS_PERMITIDOS:
         raise SystemExit(
-            f"seed_demo solo corre con ENV=dev o ENV=test (ENV={entorno!r}); "
+            f"seed_demo solo corre con ENV=dev, ENV=test o ENV=staging (ENV={entorno!r}); "
             "no se modifico la base."
         )
     owner_pwd, mostrador_pwd = _leer_passwords(owner_password, mostrador_password)
